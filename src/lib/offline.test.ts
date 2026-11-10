@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { enqueueOp, getQueue, isNetworkFailure, removeQueueEntry, replayQueue, setActiveQueueUser } from "./offline";
-const { rpc, insert } = vi.hoisted(() => ({ rpc: vi.fn(), insert: vi.fn() }));
-vi.mock("@/integrations/supabase/client", () => ({ supabase: { from: () => ({ insert }), rpc } }));
+const { rpc, insert, getSession } = vi.hoisted(() => ({ rpc: vi.fn(), insert: vi.fn(), getSession: vi.fn() }));
+vi.mock("@/integrations/supabase/client", () => ({ supabase: { from: () => ({ insert }), rpc, auth: { getSession } } }));
 
 const pay = (amount: number) => ({
   kind: "retailer_payment" as const,
@@ -14,6 +14,8 @@ describe("offline queue", () => {
     setActiveQueueUser("test-user");
     rpc.mockReset();
     insert.mockReset();
+    getSession.mockReset();
+    getSession.mockResolvedValue({ data: { session: { user: { id: "test-user" } } } });
     rpc.mockResolvedValue({ data: null, error: null });
     insert.mockResolvedValue({ error: null });
   });
@@ -80,6 +82,7 @@ describe("offline queue", () => {
   it("replays only the current user's entries and supports single-entry removal", async () => {
     enqueueOp(pay(100), "user-a");
     enqueueOp(pay(200), "user-b");
+    getSession.mockResolvedValue({ data: { session: { user: { id: "user-a" } } } });
     const result = await replayQueue("user-a");
     expect(result.synced).toBe(1);
     expect(getQueue("user-a")).toHaveLength(0);
@@ -90,13 +93,14 @@ describe("offline queue", () => {
 
   it("sends the entry id as the idempotency key (_op)", async () => {
     const entry = enqueueOp(pay(100), "user-a");
+    getSession.mockResolvedValue({ data: { session: { user: { id: "user-a" } } } });
     await replayQueue("user-a");
     expect(rpc).toHaveBeenCalledWith("record_retailer_payment", expect.objectContaining({ _op: entry.id }));
   });
 });
 
 describe("offline queue legacy upgrade", () => {
-  beforeEach(() => { window.localStorage.clear(); setActiveQueueUser("user-a"); rpc.mockReset(); rpc.mockResolvedValue({ data: null, error: null }); });
+  beforeEach(() => { window.localStorage.clear(); setActiveQueueUser("user-a"); rpc.mockReset(); getSession.mockReset(); getSession.mockResolvedValue({ data: { session: { user: { id: "user-a" } } } }); rpc.mockResolvedValue({ data: null, error: null }); });
 
   it("assigns stable uuids to v1 entries and persists them", () => {
     window.localStorage.setItem("offline-queue-v1", JSON.stringify([
