@@ -69,7 +69,7 @@ function AdminDash() {
           <FileSpreadsheet className="mr-1 h-4 w-4" />{t("export")}
         </Button>
       </div>
-      {insights && <><DashboardAlerts data={insights} isAdmin /><DealerRiskList /><DashboardKpis data={insights} isAdmin /></>}
+      {insights && <DashboardKpis data={insights} isAdmin />}
       <div className="rounded-xl border bg-card p-4">
         <h2 className="mb-3 font-display font-bold">{t("salesmen")}</h2>
         <div className="grid gap-2">
@@ -87,6 +87,7 @@ function AdminDash() {
           {salesmen.length === 0 && <p className="text-sm text-muted-foreground">{t("noData")}</p>}
         </div>
       </div>
+      {insights && <><DashboardAlerts data={insights} isAdmin /><DealerRiskList /></>}
     </div>
   );
 }

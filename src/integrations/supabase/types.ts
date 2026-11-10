@@ -256,6 +256,8 @@ export type Database = {
       }
       products: {
         Row: {
+          brand_id: string | null
+          model_id: string | null
           cost_price: number
           created_at: string
           id: string
@@ -267,6 +269,8 @@ export type Database = {
           stock_qty: number
         }
         Insert: {
+          brand_id?: string | null
+          model_id?: string | null
           cost_price?: number
           created_at?: string
           id?: string
@@ -278,6 +282,8 @@ export type Database = {
           stock_qty?: number
         }
         Update: {
+          brand_id?: string | null
+          model_id?: string | null
           cost_price?: number
           created_at?: string
           id?: string
@@ -288,6 +294,18 @@ export type Database = {
           price?: number
           stock_qty?: number
         }
+        Relationships: []
+      }
+      product_brands: {
+        Row: { id: string; name: string; created_at: string; created_by: string | null }
+        Insert: { id?: string; name: string; created_at?: string; created_by?: string | null }
+        Update: { id?: string; name?: string; created_at?: string; created_by?: string | null }
+        Relationships: []
+      }
+      product_models: {
+        Row: { id: string; brand_id: string; name: string; created_at: string; created_by: string | null }
+        Insert: { id?: string; brand_id: string; name: string; created_at?: string; created_by?: string | null }
+        Update: { id?: string; brand_id?: string; name?: string; created_at?: string; created_by?: string | null }
         Relationships: []
       }
       profiles: {

@@ -16,6 +16,7 @@ import { LedgerDoc, MoneyReceiptDoc, PrintSheet, SaleReceiptDoc } from "@/compon
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageTitle } from "@/components/Stat";
+import { BrandModelProductPicker } from "@/components/BrandModelPicker";
 import { RecordActions } from "@/components/RecordActions";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -303,10 +304,7 @@ function RetailerReturnForm({ retailerId, actorId }: { retailerId: string; actor
     <form onSubmit={submit} className="grid gap-2 rounded-lg border border-dashed p-3">
       <div className="text-sm font-semibold">{t("retailerReturn")}</div>
       <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_7rem_8rem_auto]">
-        <Select value={pid} onValueChange={(v) => { setPid(v); const p = products.find((x) => x.id === v); if (p) setPrice(String(p.price)); }}>
-          <SelectTrigger><SelectValue placeholder={t("selectProduct")} /></SelectTrigger>
-          <SelectContent>{products.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
-        </Select>
+        <BrandModelProductPicker value={pid} placeholder={t("selectProduct")} onChange={(v) => { setPid(v); const p = products.find((x) => x.id === v); if (p) setPrice(String(p.price)); }} />
         {product?.is_smartphone
           ? <Input placeholder="IMEI (comma separated)" value={imeis} onChange={(e) => setImeis(e.target.value)} />
           : <Input type="number" min={1} placeholder={t("qty")} value={qty} onChange={(e) => setQty(e.target.value)} />}

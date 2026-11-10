@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PageTitle } from "@/components/Stat";
+import { BrandModelProductPicker } from "@/components/BrandModelPicker";
 
 export const Route = createFileRoute("/_authenticated/purchases")({
   beforeLoad: requireAdmin,
@@ -207,10 +208,7 @@ function Purchases() {
           const p = products.find((x) => x.id === row.product_id);
           return (
             <div key={i} className="grid gap-2 rounded-lg bg-muted p-3 sm:grid-cols-[minmax(0,1fr)_8rem_7rem_auto]">
-              <Select value={row.product_id} onValueChange={(v) => { const next = [...items]; const prod = products.find((x) => x.id === v); next[i] = { ...row, product_id: v, cost: row.cost || String(prod?.cost_price ?? "") }; setItems(next); }}>
-                <SelectTrigger><SelectValue placeholder={t("selectProduct")} /></SelectTrigger>
-                <SelectContent>{products.map((x) => <SelectItem key={x.id} value={x.id}>{x.name}</SelectItem>)}</SelectContent>
-              </Select>
+              <BrandModelProductPicker value={row.product_id} placeholder={t("selectProduct")} onChange={(v) => { const next = [...items]; const prod = products.find((x) => x.id === v); next[i] = { ...row, product_id: v, cost: row.cost || String(prod?.cost_price ?? "") }; setItems(next); }} />
               <Input type="number" min={0.01} step="0.01" placeholder={t("costPrice")} value={row.cost} onChange={(e) => { const next = [...items]; next[i] = { ...row, cost: e.target.value }; setItems(next); }} />
               {p?.is_smartphone
                 ? <span className="self-center text-sm text-muted-foreground">{row.imeis.split(/[\s,]+/).filter(Boolean).length} IMEI</span>
