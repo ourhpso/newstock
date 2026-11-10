@@ -15,7 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { persistQueryClient } from "@tanstack/react-query-persist-client";
 import { createAppPersister, hasCachedData, shouldPersistQuery, CACHE_BUSTER, clearUserCache, clearLegacySharedCache } from "@/lib/query-persist";
 import { registerAppSW } from "@/lib/pwa-register";
-import { replayQueue, useOnline } from "@/lib/offline";
+import { replayQueue, setActiveQueueUser, useOnline } from "@/lib/offline";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -152,6 +152,7 @@ function RootComponent() {
       stopPersist?.();
       stopPersist = null;
       activeUserId = nextUserId;
+      setActiveQueueUser(nextUserId);
 
       // Never let one account inherit another account's in-memory or disk cache.
       if (previousUserId) clearUserCache(previousUserId);
