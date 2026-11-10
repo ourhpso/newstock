@@ -45,7 +45,7 @@ export function useProductLabel() {
 
 /** Cascading brand -> model -> stocked product selector. Admins can extend the catalog inline. */
 export function BrandModelProductPicker({
-  value, onChange, allowManage = false, placeholder = "Select product", showStock = true,
+  value, onChange, allowManage = false, placeholder = "Select product", showStock = true, onlyProductIds, excludeSmartphones = false,
 }: {
   value: string;
   onChange: (productId: string) => void;
@@ -74,7 +74,7 @@ export function BrandModelProductPicker({
     return () => { active = false; };
   }, []);
   const brandModels = models.filter((m) => m.brand_id === brandId);
-  const brandProducts = products.filter((p) => (p as any).brand_id === brandId);
+  const brandProducts = products.filter((p) => (p as any).brand_id === brandId && (!onlyProductIds || onlyProductIds.includes(p.id)) && (!excludeSmartphones || !p.is_smartphone));
   const availableModels = brandModels.filter((m) => brandProducts.some((p) => (p as any).model_id === m.id));
   const matchingProducts = brandProducts.filter((p) => (p as any).model_id === modelId);
   async function addBrand() {
