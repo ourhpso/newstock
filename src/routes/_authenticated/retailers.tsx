@@ -217,7 +217,7 @@ function Retailers() {
                         ) : e.kind === "pay" && e.pay ? (
                           <>
                             <span className="min-w-0 flex-1 truncate">{t("collectPayment")} {money(e.pay.amount)}{e.pay.note ? ` — ${e.pay.note}` : ""}</span>
-                            <span className="shrink-0 text-muted-foreground">{new Date(e.at).toLocaleDateString()}</span>
+                            <span className="shrink-0 text-muted-foreground">{formatDate(e.at)}</span>
                             <Button size="sm" variant="ghost" className="h-7 shrink-0 px-2" onClick={() => printPayReceipt(e.pay!, r)} title={t("printReceipt")}><Printer className="h-4 w-4" /></Button>
                           </>
                         ) : e.ret ? (
