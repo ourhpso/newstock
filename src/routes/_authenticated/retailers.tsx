@@ -7,7 +7,7 @@ import { FileSpreadsheet, Printer } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useMe, useProducts, useRetailers, useRetailerLedgers, useSalesmen } from "@/lib/me";
 import { useT } from "@/lib/i18n";
-import { formatDate, formatDateTime, formatInteger, money } from "@/lib/imei";
+import { formatDate, formatDateTime, money } from "@/lib/imei";
 import { exportCsv } from "@/lib/export";
 import { useBusiness } from "@/lib/business";
 import { runOrQueue, useOnline } from "@/lib/offline";
