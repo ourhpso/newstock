@@ -79,7 +79,6 @@ function Products() {
         name, model: f.model.trim() || null, price, is_smartphone: f.is_smartphone, stock_qty: 0,
       }).select("id").single();
       if (error) { toast.error(error.message); return; }
-      const opening = f.is_smartphone ? 0 : Number(f.stock_qty || 0);
       if (opening > 0 && data) {
         const { error: stockError } = await rpc("receive_stock", { _product: data.id, _qty: opening, _kind: "opening", _reason: "Opening stock at product creation", _date: null, _op: null });
         if (stockError) {
