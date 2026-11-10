@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useProducts, useSalesmanSummary } from "@/lib/me";
 import { BrandModelProductPicker, useProductLabel } from "@/components/BrandModelPicker";
@@ -31,6 +32,15 @@ export function CartBuilder({
   // Salesman's held IMEIs (cached) let sale/return scans be checked while offline.
   const { data: summary } = useSalesmanSummary(mode === "issue" ? undefined : salesmanId);
   const stockByProductId = Object.fromEntries((summary?.products ?? []).map((p) => [p.product_id, p.hand]));
+  const { data: imeiCounts = {} } = useQuery({
+    queryKey: ["imei-counts"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("distribution_stock_counts");
+      if (error) throw error;
+      return (data ?? {}) as Record<string, number>;
+    },
+    enabled: mode === "issue",
+  });
   const [pid, setPid] = useState("");
   const [qty, setQty] = useState("1");
 
@@ -91,6 +101,12 @@ export function CartBuilder({
       <div className="rounded-xl border bg-card p-4">
         <div className="mb-2 text-sm font-semibold">{t("smartphone")}</div>
         <ImeiScanner validate={validate} />
+        <div className="mt-2 grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
+          {products.filter((p) => p.is_smartphone).map((p) => {
+            const available = mode === "issue" ? imeiCounts[p.id] ?? 0 : stockByProductId[p.id] ?? 0;
+            return <div key={p.id} className="flex justify-between gap-2"><span className="truncate">{productLabel(p.id) || p.name}</span><b className="shrink-0">{available} pcs</b></div>;
+          })}
+        </div>
       </div>
       <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 rounded-lg border bg-card p-4 sm:grid-cols-[minmax(0,1fr)_6rem_auto]">
         <div className="col-span-full text-sm font-semibold">{t("buttonPhone")}</div>
