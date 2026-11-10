@@ -4,7 +4,7 @@ import { AlertTriangle, ArrowUpRight, Phone, FileDown } from "lucide-react";
 import { PrintSheet, TableDoc } from "@/components/PrintDocs";
 import { getBusiness } from "@/lib/business";
 import { useT } from "@/lib/i18n";
-import { money } from "@/lib/imei";
+import { formatInteger, money } from "@/lib/imei";
 import { isLowStock, type DashboardInsights } from "@/lib/dashboard";
 import { Button } from "@/components/ui/button";
 
@@ -14,7 +14,7 @@ export function DashboardAlerts({ data, isAdmin }: { data: DashboardInsights; is
   const lowStock = data.lowStock.filter((p) => isLowStock(p.qty, p.low_stock_threshold));
   return (
     <div className="space-y-5">
-      {printing && <PrintSheet onDone={() => setPrinting(false)}><TableDoc b={getBusiness()} appName={t("appName")} title={t("overdueRetailers")} head={[t("retailers"), t("phone"), t("address"), ...(isAdmin ? [t("salesmen")] : []), t("days"), t("overdueBalance"), t("totalDue")]} rows={[...data.overdue.map((r) => [r.name, r.phone ?? "", r.address ?? "", ...(isAdmin ? [r.salesman_name ?? ""] : []), r.age_days, money(r.overdue_amount), money(r.total_due)]), [t("total"), "", "", ...(isAdmin ? [""] : []), "", money(data.overdueTotal), money(data.overdue.reduce((sum, r) => sum + r.total_due, 0))]]} /></PrintSheet>}
+      {printing && <PrintSheet onDone={() => setPrinting(false)}><TableDoc b={getBusiness()} appName={t("appName")} title={t("overdueRetailers")} head={[t("retailers"), t("phone"), t("address"), ...(isAdmin ? [t("salesmen")] : []), t("days"), t("overdueBalance"), t("totalDue")]} rows={[...data.overdue.map((r) => [r.name, r.phone ?? "", r.address ?? "", ...(isAdmin ? [r.salesman_name ?? ""] : []), formatInteger(r.age_days), money(r.overdue_amount), money(r.total_due)]), [t("total"), "", "", ...(isAdmin ? [""] : []), "", money(data.overdueTotal), money(data.overdue.reduce((sum, r) => sum + r.total_due, 0))]]} /></PrintSheet>}
       <section className="border-y border-destructive/30 py-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 flex-1 basis-56">
@@ -53,7 +53,7 @@ export function DashboardAlerts({ data, isAdmin }: { data: DashboardInsights; is
             {lowStock.map((p) => (
               <div key={p.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-l-2 border-destructive py-2 pl-3">
                 <div className="min-w-0 break-words"><div className="font-semibold">{p.name} {p.model}</div><div className="text-xs text-muted-foreground">{t("stockThreshold")}: {p.low_stock_threshold}</div></div>
-                <div className="text-right text-destructive"><div className="text-xs">{t("stock")}</div><div className="text-xl font-bold">{p.qty}</div></div>
+                <div className="text-right text-destructive"><div className="text-xs">{t("stock")}</div><div className="text-xl font-bold">{formatInteger(p.qty)}</div></div>
               </div>
             ))}
           </div>
