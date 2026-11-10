@@ -41,6 +41,7 @@ describe("accounting chain (all migrations, PGlite)", () => {
     expect(again).toBe(pid);
     expect((await one<{ n: number }>("SELECT count(*)::int n FROM imei_units WHERE status='in_stock'")).n).toBe(2);
     expect((await one<{ q: number }>(`SELECT stock_qty q FROM products WHERE id='${button}'`)).q).toBe(10);
+    expect(Number((await one<{ cost_price: string }>("SELECT cost_price FROM products WHERE id=$1", [button])).cost_price)).toBe(2000);
     expect(Number((await one<{ supplier_due: string }>("SELECT supplier_due($1)", [supplier])).supplier_due)).toBe(45000); // 2*15000+10*2000-5000
     const doc = await one<{ doc_no: string }>(`SELECT doc_no FROM purchases WHERE id='${pid}'`);
     expect(doc.doc_no).toMatch(/^PUR-\d{6}$/);
