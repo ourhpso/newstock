@@ -208,7 +208,7 @@ export function SettlementDoc({
       <Letterhead b={b} title={t("settlementReport")} fallbackName={appName} />
       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 8 }}>
         <div><b>{t("salesmen")}:</b> {salesmanName}</div>
-        <div>{t("date")}: {new Date().toLocaleDateString("bn-BD", { dateStyle: "medium" })}</div>
+        <div>{t("date")}: {new Date().toLocaleDateString("en-GB", { timeZone: "Asia/Dhaka", dateStyle: "medium" })}</div>
       </div>
       <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 12 }}>
         <thead>
