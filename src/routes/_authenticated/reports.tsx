@@ -40,6 +40,8 @@ function SalesmanReports() {
   const {data:salesmen=[]}=useSalesmen();
   const {data:retailers=[]}=useRetailers();
   const {data:products=[]}=useProducts();
+  const {data:brands=[]}=useQuery({queryKey:["product-brands"],queryFn:async()=>{const {data,error}=await supabase.from("product_brands").select("id,name");if(error)throw error;return data??[];}});
+  const {data:models=[]}=useQuery({queryKey:["product-models"],queryFn:async()=>{const {data,error}=await supabase.from("product_models").select("id,name");if(error)throw error;return data??[];}});
   const [business]=useBusiness();
   const [from,setFrom]=useState(monthStart());
   const [to,setTo]=useState(today());
@@ -101,7 +103,7 @@ function SalesmanReports() {
     if(!data)return [] as DetailedReportRow[];
     const salesmanName=(id:string)=>salesmen.find(s=>s.id===id)?.full_name??(id===me?.id?me?.profile?.full_name??me?.email??"Me":id.slice(0,8));
     const retailerName=(id:string|null)=>id?retailers.find(r=>r.id===id)?.name??"—":"—";
-    const productName=(id:string)=>products.find(p=>p.id===id)?.name??"Product";
+    const productName=(id:string)=>{const p=products.find(p=>p.id===id);if(!p)return "Product";const brand=brands.find(b=>b.id===p.brand_id)?.name;const model=models.find(m=>m.id===p.model_id)?.name;return [brand,model,p.name].filter(Boolean).join(" · ");};
     const out:DetailedReportRow[]=[];
     if(selectedTypes.includes("sale")) for(const s of data.sales) out.push({date:s.txn_date??s.created_at,salesman:salesmanName(s.salesman_id),retailer:retailerName(s.retailer_id),type:labels.sale,reference:s.invoice_no??s.id.slice(0,8),product:"Invoice total",qty:0,debit:Number(s.total),credit:Number(s.paid),note:s.discount?"Discount "+money(s.discount):""});
     if(selectedTypes.includes("collection")) for(const p of data.payments) out.push({date:p.txn_date??p.created_at,salesman:salesmanName(p.salesman_id),retailer:retailerName(p.retailer_id),type:labels.collection,reference:p.receipt_no??p.id.slice(0,8),product:p.method,qty:0,debit:0,credit:Number(p.amount),note:p.note??""});
@@ -110,7 +112,7 @@ function SalesmanReports() {
     const movementKinds:Record<string,ReportType>={sale:"sale",issue:"issue",return:"stock_return",damage:"damage",sale_return:"sale_return"};
     for(const m of data.movements){const type=movementKinds[m.kind];if(!type||!selectedTypes.includes(type))continue;out.push({date:m.txn_date??m.created_at,salesman:salesmanName(m.salesman_id),retailer:retailerName(m.retailer_id),type:labels[type],reference:m.batch_no??m.sale_id?.slice(0,8)??m.id.slice(0,8),product:productName(m.product_id)+(m.imei?" · IMEI "+m.imei:""),qty:Number(m.qty),debit:m.kind==="issue"?Number(m.qty)*Number(m.unit_price):0,credit:m.kind==="return"||m.kind==="sale_return"?Number(m.qty)*Number(m.unit_price):0,note:m.kind==="damage"?"Damaged":m.kind==="sale"?"Unit price "+money(m.unit_price):""});}
     return out.sort((a,b)=>a.date.localeCompare(b.date));
-  },[data,selectedTypes,salesmen,retailers,products,me]);
+  },[data,selectedTypes,salesmen,retailers,products,brands,models,me]);
   const totals=useMemo(()=>{
     if(!data)return {sales:0,collections:0,returns:0,deposits:0,stockIssued:0,stockReturned:0};
     return {
@@ -130,7 +132,7 @@ function SalesmanReports() {
     const customers=[["Retailer","Salesman","Sales","Paid at sale","Collections","Returns","Outstanding"]];
     const customerIds=[...new Set(data.sales.map(s=>s.retailer_id).concat(data.payments.map(p=>p.retailer_id),data.returns.map(r=>r.retailer_id)))];
     for(const id of customerIds){const retailer=retailers.find(r=>r.id===id);const sales=data.sales.filter(r=>r.retailer_id===id);const pays=data.payments.filter(r=>r.retailer_id===id);const rets=data.returns.filter(r=>r.retailer_id===id);customers.push([retailer?.name??id,salesmen.find(s=>s.id===retailer?.salesman_id)?.full_name??"",sales.reduce((a,r)=>a+Number(r.total),0),sales.reduce((a,r)=>a+Number(r.paid),0),pays.reduce((a,r)=>a+Number(r.amount),0),rets.reduce((a,r)=>a+Number(r.total),0),sales.reduce((a,r)=>a+Number(r.total)-Number(r.paid),0)-pays.reduce((a,r)=>a+Number(r.amount),0)-rets.reduce((a,r)=>a+Number(r.total),0)]);}
-    const stock=[["Date","Salesman","Product","Movement","Reference","Qty","Unit price","Value","IMEI"],...data.movements.filter(m=>m.kind!=="sale"||selectedTypes.includes("sale")).filter(m=>m.kind!=="issue"||selectedTypes.includes("issue")).filter(m=>m.kind!=="return"||selectedTypes.includes("stock_return")).filter(m=>m.kind!=="damage"||selectedTypes.includes("damage")).filter(m=>m.kind!=="sale_return"||selectedTypes.includes("sale_return")).map(m=>[formatDate(m.txn_date),salesmen.find(s=>s.id===m.salesman_id)?.full_name??"",products.find(p=>p.id===m.product_id)?.name??"",m.kind,m.batch_no??"",Number(m.qty),Number(m.unit_price),Number(m.qty)*Number(m.unit_price),m.imei??""])];
+    const stock=[["Date","Salesman","Product","Movement","Reference","Qty","Unit price","Value","IMEI"],...data.movements.filter(m=>m.kind!=="sale"||selectedTypes.includes("sale")).filter(m=>m.kind!=="issue"||selectedTypes.includes("issue")).filter(m=>m.kind!=="return"||selectedTypes.includes("stock_return")).filter(m=>m.kind!=="damage"||selectedTypes.includes("damage")).filter(m=>m.kind!=="sale_return"||selectedTypes.includes("sale_return")).map(m=>[formatDate(m.txn_date),salesmen.find(s=>s.id===m.salesman_id)?.full_name??"",[brands.find(b=>b.id===products.find(p=>p.id===m.product_id)?.brand_id)?.name,models.find(x=>x.id===products.find(p=>p.id===m.product_id)?.model_id)?.name,products.find(p=>p.id===m.product_id)?.name].filter(Boolean).join(" · "),m.kind,m.batch_no??"",Number(m.qty),Number(m.unit_price),Number(m.qty)*Number(m.unit_price),m.imei??""])];
     void exportExcelWorkbook("salesman-report-"+from+"-"+to+".xls",[{name:"Summary",rows:summary},{name:"Transactions",rows:transactions},{name:"Retailer ledgers",rows:customers},{name:"Stock movements",rows:stock}],title);
   }
   function printReport(){setPrintDoc(<DetailedReportDoc business={business} title={title} period={from+" — "+to} rows={rows} totals={totals}/>);}
