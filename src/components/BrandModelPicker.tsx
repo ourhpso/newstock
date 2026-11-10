@@ -12,6 +12,7 @@ export type ProductModel = { id: string; brand_id: string; name: string };
 function recentIds(key:string):string[]{try{const x=JSON.parse(localStorage.getItem("newstock:recent:"+key)||"[]");return Array.isArray(x)?x.filter((v):v is string=>typeof v==="string"):[]}catch{return []}}
 function rememberId(key:string,id:string){try{localStorage.setItem("newstock:recent:"+key,JSON.stringify([id,...recentIds(key).filter(x=>x!==id)].slice(0,6)))}catch{}}
 function recentFirst<T extends {id:string}>(items:T[],key:string){const ids=recentIds(key);return [...items].sort((a,b)=>{const ai=ids.indexOf(a.id),bi=ids.indexOf(b.id);return (ai<0?999:ai)-(bi<0?999:bi)})}
+function recentChips<T extends {id:string;name:string}>(items:T[],key:string,onPick:(id:string)=>void){const ids=recentIds(key);return ids.map(id=>items.find(x=>x.id===id)).filter((x):x is T=>!!x).slice(0,4).map(x=><Button key={x.id} type="button" size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={()=>onPick(x.id)}>{x.name}</Button>)}
 
 export function useProductCatalog() {
   const db = supabase as any;
@@ -108,6 +109,7 @@ export function BrandModelProductPicker({
   }
   return (
     <div className="grid gap-2">
+      {recentChips(brands,"brand",(v)=>{setBrandId(v);setModelId("");onChange("");}) .length>0 && <div className="flex flex-wrap gap-1">{recentChips(brands,"brand",(v)=>{setBrandId(v);setModelId("");onChange("");})}</div>}
       <Select value={brandId} onValueChange={(v) => { setBrandId(v); rememberId("brand",v); setModelId(""); onChange(""); }}>
         <SelectTrigger><SelectValue placeholder="Brand" /></SelectTrigger>
         <SelectContent>{recentFirst(brands,"brand").map((b) => <SelectItem key={b.id} value={b.id}>{recentIds("brand").includes(b.id)?"↻ ":""}{b.name}</SelectItem>)}</SelectContent>
@@ -118,6 +120,7 @@ export function BrandModelProductPicker({
           <Button type="button" size="sm" variant="outline" onClick={addBrand} disabled={!newBrand.trim()}>+</Button>
         </div>
       )}
+      {brandId && recentChips(availableModels,"model:"+brandId,(v)=>{setModelId(v);onChange("");}).length>0 && <div className="flex flex-wrap gap-1">{recentChips(availableModels,"model:"+brandId,(v)=>{setModelId(v);onChange("");})}</div>}
       <Select value={modelId} disabled={!brandId} onValueChange={(v) => { setModelId(v); rememberId("model:"+brandId,v); onChange(""); }}>
         <SelectTrigger><SelectValue placeholder="Model" /></SelectTrigger>
         <SelectContent>{recentFirst(availableModels,"model:"+brandId).map((m) => <SelectItem key={m.id} value={m.id}>{recentIds("model:"+brandId).includes(m.id)?"↻ ":""}{m.name}</SelectItem>)}</SelectContent>
@@ -128,7 +131,8 @@ export function BrandModelProductPicker({
           <Button type="button" size="sm" variant="outline" onClick={addModel} disabled={!newModel.trim()}>+</Button>
         </div>
       )}
-      <Select value={value} disabled={!modelId} onValueChange={onChange}>
+      {modelId && recentChips(matchingProducts,"product",(v)=>{rememberId("product",v);onChange(v);}).length>0 && <div className="flex flex-wrap gap-1">{recentChips(matchingProducts,"product",(v)=>{rememberId("product",v);onChange(v);})}</div>}
+      <Select value={value} disabled={!modelId} onValueChange={(v)=>{rememberId("product",v);onChange(v);}}> 
         <SelectTrigger><SelectValue placeholder={placeholder} /></SelectTrigger>
         <SelectContent>
           {recentFirst(matchingProducts,"product").map((p) => (
