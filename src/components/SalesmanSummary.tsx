@@ -35,8 +35,8 @@ export function SalesmanSummary({ salesmanId }: { salesmanId: string }) {
               <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">{t("noData")}</TableCell></TableRow>
             )}
             {data.products.map((p) => (
-              <TableRow key={p.product_id} className="cursor-pointer hover:bg-muted/60" onClick={() => window.location.assign("/products")}>
-                <TableCell className="font-medium">{p.name}</TableCell>
+              <TableRow key={p.product_id}>
+                <TableCell className="font-medium"><Link to="/products" className="hover:underline">{p.name}</Link></TableCell>
                 <TableCell>{formatInteger(p.issued)}</TableCell>
                 <TableCell>{formatInteger(p.sold)}</TableCell>
                 <TableCell>{formatInteger(p.returned)}</TableCell>
