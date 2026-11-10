@@ -88,7 +88,7 @@ function StockIssue() {
         <div className="w-full space-y-2 sm:w-72"><SearchHistoryBar value={salesmanSearch} onChange={setSalesmanSearch} historyKey="stock-issue-salesman" placeholder="Search salesman..." /><Select value={sid} onValueChange={(v) => { setSid(v); setCart([]); }}>
           <SelectTrigger className="w-full sm:w-72"><SelectValue placeholder={t("selectSalesman")} /></SelectTrigger>
           <SelectContent>{visibleSalesmen.map((s) => <SelectItem key={s.id} value={s.id}>{s.full_name}</SelectItem>)}</SelectContent>
-        </Select>
+        </Select></div>
         <div className="space-y-1"><Label>{t("date")}</Label><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
       </div>
       {sid && <CartBuilder mode="issue" salesmanId={sid} cart={cart} setCart={setCart} />}
