@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { useSalesmanSummary } from "@/lib/me";
 import { useT } from "@/lib/i18n";
 import { formatInteger, money } from "@/lib/imei";
@@ -11,11 +12,11 @@ export function SalesmanSummary({ salesmanId }: { salesmanId: string }) {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-        <Stat label={t("sales")} value={money(data.salesTotal)} />
-        <Stat label={t("cashInHand")} value={money(data.cashInHand)} tone="accent" />
-        <Stat label={t("deposited")} value={money(data.deposited)} tone="good" />
-        <Stat label={t("retailerDue")} value={money(data.retailerDue)} tone="bad" />
-        <Stat label={t("goodsValue")} value={money(data.products.reduce((a, p) => a + p.value, 0))} />
+        <Stat label={t("sales")} value={money(data.salesTotal)} to="/sales" />
+        <Stat label={t("cashInHand")} value={money(data.cashInHand)} tone="accent" to="/settlement" />
+        <Stat label={t("deposited")} value={money(data.deposited)} tone="good" to="/settlement" />
+        <Stat label={t("retailerDue")} value={money(data.retailerDue)} tone="bad" to="/retailers" />
+        <Stat label={t("goodsValue")} value={money(data.products.reduce((a, p) => a + p.value, 0))} to="/stock-issue" />
       </div>
       <div className="rounded-xl border bg-card">
         <Table>
@@ -34,7 +35,7 @@ export function SalesmanSummary({ salesmanId }: { salesmanId: string }) {
               <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">{t("noData")}</TableCell></TableRow>
             )}
             {data.products.map((p) => (
-              <TableRow key={p.product_id}>
+              <TableRow key={p.product_id} className="cursor-pointer hover:bg-muted/60" onClick={() => window.location.assign("/products")}>
                 <TableCell className="font-medium">{p.name}</TableCell>
                 <TableCell>{formatInteger(p.issued)}</TableCell>
                 <TableCell>{formatInteger(p.sold)}</TableCell>
