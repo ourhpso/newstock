@@ -104,7 +104,7 @@ export function CartBuilder({
         <div className="mt-2 grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
           {products.filter((p) => p.is_smartphone).map((p) => {
             const available = mode === "issue" ? imeiCounts[p.id] ?? 0 : stockByProductId[p.id] ?? 0;
-            return <div key={p.id} className="flex justify-between gap-2"><span className="truncate">{productLabel(p.id) || p.name}</span><b className="shrink-0">{available} pcs</b></div>;
+            return <div key={p.id} className="flex justify-between gap-2"><span className="truncate">{productLabel(p.id) || p.name}</span><b className="shrink-0">{formatInteger(available)} pcs</b></div>;
           })}
         </div>
       </div>
