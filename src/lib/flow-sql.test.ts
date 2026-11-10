@@ -68,6 +68,20 @@ describe("product add -> SR issue user journey (PGlite)", () => {
     expect((await one<{ status: string }>(`SELECT status FROM imei_units WHERE imei='${IB}'`)).status).toBe("in_stock");
   });
 
+
+  it("purchase requires valid non-empty smartphone IMEIs and records stock atomically", async () => {
+    const product = "88888888-8888-4888-8888-888888888888";
+    const supplier = "99999999-9999-4999-8999-999999999999";
+    await db.query(`INSERT INTO suppliers(id,name) VALUES('${supplier}','Test supplier')`);
+    await db.query(`INSERT INTO products(id,name,price,is_smartphone,stock_qty) VALUES('${product}','Test smartphone',20000,true,0)`);
+    await expect(db.query("SELECT record_purchase($1,'[]'::jsonb,0,NULL,NULL)",[supplier])).rejects.toThrow(/At least one purchase item/);
+    await expect(db.query("SELECT record_purchase($1,$2::jsonb,0,NULL,NULL)",[supplier,JSON.stringify([{product_id:product,cost_price:12000,imeis:["490154203237519"]}])])).rejects.toThrow(/Invalid IMEI checksum/);
+    expect((await one<{n:number}>("SELECT count(*)::int n FROM imei_units WHERE product_id=$1",[product])).n).toBe(0);
+    await db.query("SELECT record_purchase($1,$2::jsonb,12000,NULL,NULL)",[supplier,JSON.stringify([{product_id:product,cost_price:12000,imeis:["490154203237518"]}])]);
+    expect((await one<{n:number}>("SELECT count(*)::int n FROM imei_units WHERE product_id=$1 AND status='in_stock'",[product])).n).toBe(1);
+    expect((await one<{n:number}>("SELECT count(*)::int n FROM purchases WHERE supplier_id=$1",[supplier])).n).toBe(1);
+  });
+
   it("an already-issued IMEI cannot be issued twice", async () => {
     await expect(db.query("SELECT issue_stock($1,$2::jsonb,NULL,NULL)", [sr, JSON.stringify([{ product_id: phone, imeis: [IA] }])])).rejects.toThrow(/not available/);
   });
