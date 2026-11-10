@@ -37,7 +37,7 @@ BEGIN
       RAISE EXCEPTION 'Cost price must be positive for every line';
     END IF;
     IF p.is_smartphone THEN
-      IF jsonb_typeof(it->'imeis') <> 'array' OR jsonb_array_length(it->'imeis')=0 THEN
+      IF jsonb_typeof(it->'imeis') IS DISTINCT FROM 'array' OR jsonb_array_length(coalesce(it->'imeis','[]'::jsonb))=0 THEN
         RAISE EXCEPTION 'At least one IMEI is required for %',p.name;
       END IF;
       FOR im IN SELECT jsonb_array_elements_text(it->'imeis') LOOP
@@ -97,7 +97,7 @@ BEGIN
   SELECT * INTO p FROM public.products WHERE id=_product FOR UPDATE;
   IF p.id IS NULL OR NOT p.is_smartphone THEN RAISE EXCEPTION 'Smartphone product required'; END IF;
   IF _imeis IS NULL OR cardinality(_imeis)=0 THEN RAISE EXCEPTION 'At least one IMEI is required'; END IF;
-  IF _cost IS NULL OR _cost<=0 THEN RAISE EXCEPTION 'Cost price must be positive'; END IF;
+  IF _cost IS NULL OR _cost<=0 OR _cost::text IN ('NaN','Infinity','-Infinity') THEN RAISE EXCEPTION 'Cost price must be positive'; END IF;
   IF cardinality(_imeis) <> (SELECT count(DISTINCT x) FROM unnest(_imeis) x) THEN RAISE EXCEPTION 'Duplicate IMEI in request'; END IF;
   FOREACH im IN ARRAY _imeis LOOP
     IF im !~ '^[0-9]{15}$' THEN RAISE EXCEPTION 'Invalid 15-digit IMEI: %',im; END IF;
