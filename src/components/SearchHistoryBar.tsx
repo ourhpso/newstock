@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, X, History } from "lucide-react";
@@ -10,7 +10,7 @@ function saveRecent(key: string, value: string) {
   const v=value.trim(); if(!v) return;
   try { localStorage.setItem("newstock:recent:"+key, JSON.stringify([v,...readRecent(key).filter(x=>x.toLowerCase()!==v.toLowerCase())].slice(0,6))); } catch {}
 }
-export function SearchHistoryBar({value,onChange,historyKey,placeholder,children}:{value:string;onChange:(v:string)=>void;historyKey:string;placeholder:string;children?:React.ReactNode}) {
+export function SearchHistoryBar({value,onChange,historyKey,placeholder,children}:{value:string;onChange:(v:string)=>void;historyKey:string;placeholder:string;children?:ReactNode}) {
   const [recent,setRecent]=useState<string[]>([]);
   useEffect(()=>{setRecent(readRecent(historyKey));},[historyKey]);
   const remember=()=>{if(value.trim()){saveRecent(historyKey,value);setRecent(readRecent(historyKey));}};
