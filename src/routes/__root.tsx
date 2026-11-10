@@ -13,7 +13,7 @@ import { Toaster, toast } from "sonner";
 import { LangProvider, useT } from "@/lib/i18n";
 import { supabase } from "@/integrations/supabase/client";
 import { persistQueryClient } from "@tanstack/react-query-persist-client";
-import { createAppPersister, hasCachedData, shouldPersistQuery, CACHE_BUSTER, clearUserCache } from "@/lib/query-persist";
+import { createAppPersister, hasCachedData, shouldPersistQuery, CACHE_BUSTER, clearUserCache, clearLegacySharedCache } from "@/lib/query-persist";
 import { registerAppSW } from "@/lib/pwa-register";
 import { replayQueue, useOnline } from "@/lib/offline";
 
@@ -141,6 +141,7 @@ function RootComponent() {
   }, []);
 
   useEffect(() => {
+    clearLegacySharedCache();
     let activeUserId: string | null = null;
     let stopPersist: (() => void) | null = null;
     let disposed = false;
