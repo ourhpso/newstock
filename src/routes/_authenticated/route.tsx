@@ -102,6 +102,63 @@ function Layout() {
 }
 
 /**
+ * Desktop navigation stays collapsed to a slim left-edge handle until hovered
+ * or keyboard-focused. Selecting a destination closes it immediately.
+ */
+function DesktopSidebar({ nav }: { nav: { to: string; k: Key }[] }) {
+  const { t } = useT();
+  const [open, setOpen] = useState(false);
+  const currentPath = useRouterState({ select: (r) => r.location.pathname });
+  useEffect(() => setOpen(false), [currentPath]);
+  return (
+    <aside
+      className="group fixed inset-y-0 left-0 z-40 hidden md:block"
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+      onFocusCapture={() => setOpen(true)}
+      onBlurCapture={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpen(false);
+      }}
+    >
+      <div className={`h-full overflow-hidden border-r bg-card/95 shadow-xl backdrop-blur transition-[width] duration-200 ease-out ${open ? "w-64" : "w-3"}`}>
+        <div className={`flex h-full flex-col ${open ? "opacity-100" : "pointer-events-none opacity-0"} transition-opacity duration-150`}>
+          <div className="flex h-16 items-center gap-3 border-b px-4">
+            <img src={LOGO_URL} alt={t("companyName")} className="h-9 w-9 shrink-0 rounded-md object-contain" />
+            <span className="truncate text-sm font-bold">{t("menu")}</span>
+          </div>
+          <nav aria-label={t("menu")} className="flex-1 space-y-1 overflow-y-auto p-2">
+            {nav.map((item) => {
+              const Icon = navIcon[item.k] ?? LayoutDashboard;
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  onClick={() => setOpen(false)}
+                  className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  activeProps={{ className: "bg-accent font-semibold text-accent-foreground" }}
+                >
+                  <Icon className="h-5 w-5 shrink-0" />
+                  <span className="truncate">{t(item.k)}</span>
+                </Link>
+              );
+            })}
+          </nav>
+          <div className="border-t px-4 py-3 text-xs text-muted-foreground">{t("appName")}</div>
+        </div>
+      </div>
+      <button
+        type="button"
+        aria-label={t("menu")}
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+        onFocus={() => setOpen(true)}
+        className={`absolute left-0 top-1/2 h-16 w-3 -translate-y-1/2 rounded-r-md border border-l-0 bg-primary/80 shadow-sm transition-colors hover:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${open ? "opacity-0" : "opacity-100"}`}
+      />
+    </aside>
+  );
+}
+
+/**
  * Mobile navigation: a fixed bottom bar with at most 4 items (first three
  * pages + a "More" button) and an auto-hiding side drawer that lists every
  * page. The drawer closes itself as soon as a page is opened.
