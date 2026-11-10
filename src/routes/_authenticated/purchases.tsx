@@ -88,10 +88,12 @@ function Purchases() {
         if (error) throw error;
         return [x.id, Number(data ?? 0)] as const;
       }));
-      return new Map(entries);
+      // TanStack Query's structural sharing treats Map as a plain object and
+      // can replace it with {}, so keep cached query data JSON-serializable.
+      return Object.fromEntries(entries);
     },
   });
-  const dueOf = (id: string) => supplierDues?.get(id) ?? 0;
+  const dueOf = (id: string) => supplierDues?.[id] ?? 0;
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ["suppliers"] });
