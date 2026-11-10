@@ -60,15 +60,23 @@ function Products() {
   }
 
   const [adding, setAdding] = useState(false);
+  const [savingImeis, setSavingImeis] = useState(false);
   async function add(e: React.FormEvent) {
     e.preventDefault();
     if (adding) return;
+    const name = f.name.trim();
+    const price = Number(f.price);
+    const opening = f.is_smartphone ? 0 : Number(f.stock_qty || 0);
+    if (!name || !Number.isFinite(price) || price < 0 || !Number.isInteger(opening) || opening < 0) {
+      toast.error(t("invalidThreshold"));
+      return;
+    }
     setAdding(true);
     try {
       // Products always start at zero stock; opening stock enters through
       // receive_stock so the movement ledger can reconcile from day one.
       const { data, error } = await supabase.from("products").insert({
-        name: f.name, model: f.model || null, price: Number(f.price || 0), is_smartphone: f.is_smartphone, stock_qty: 0,
+        name, model: f.model.trim() || null, price, is_smartphone: f.is_smartphone, stock_qty: 0,
       }).select("id").single();
       if (error) { toast.error(error.message); return; }
       const opening = f.is_smartphone ? 0 : Number(f.stock_qty || 0);
@@ -84,6 +92,7 @@ function Products() {
         }
       }
       setF({ name: "", model: "", price: "", is_smartphone: true, stock_qty: "" });
+      toast.success(t("done"));
       refresh();
     } finally {
       setAdding(false);
@@ -91,19 +100,27 @@ function Products() {
   }
 
   async function saveImeis() {
-    if (!imeiFor) return;
-    const list = [...new Set(imeiText.split(/[\s,]+/).map((s) => s.trim()).filter(Boolean))];
-    const bad = list.filter((i) => !isValidImeiFormat(i));
-    if (bad.length) { navigator.vibrate?.(300); { toast.error(`${t("imeiWrong")} ${bad.join(", ")}`); return; } }
-    const { error } = await rpc("register_imeis", { _product: imeiFor, _imeis: list, _cost: Number(imeiCost || 0) });
-    if (error) { toast.error(error.message); return; }
-    toast.success(`${list.length} IMEI ${t("done")}`);
-    setImeiFor(null); setImeiText(""); refresh();
+    if (!imeiFor || savingImeis) return;
+    const raw = imeiText.split(/[\\s,]+/).map((s) => s.trim()).filter(Boolean);
+    const list = [...new Set(raw)];
+    const cost = Number(imeiCost);
+    const bad = raw.filter((i) => !isValidImeiFormat(i));
+    if (!list.length) { toast.error(t("imeiWrong")); return; }
+    if (raw.length !== list.length) { toast.error(t("duplicateImei")); return; }
+    if (bad.length) { navigator.vibrate?.(300); toast.error(`${t("imeiWrong")} ${bad.join(", ")}`); return; }
+    if (!Number.isFinite(cost) || cost <= 0) { toast.error(t("invalidThreshold")); return; }
+    setSavingImeis(true);
+    try {
+      const { error } = await rpc("register_imeis", { _product: imeiFor, _imeis: list, _cost: cost });
+      if (error) { toast.error(error.message); return; }
+      toast.success(`${list.length} IMEI ${t("done")}`);
+      setImeiFor(null); setImeiText(""); setImeiCost(""); refresh();
+    } finally { setSavingImeis(false); }
   }
 
   async function addStock(id: string) {
     const n = Number(addQty[id] || 0);
-    if (!n) return;
+    if (!Number.isInteger(n) || n === 0) { toast.error(t("invalidThreshold")); return; }
     // Signed adjustment through the validated function; writes a movement every time.
     const { error } = await rpc("receive_stock", { _product: id, _qty: n, _kind: "adjustment", _reason: "Manual stock adjustment", _date: null, _op: null });
     if (error) { toast.error(error.message); return; }
@@ -129,9 +146,9 @@ function Products() {
       <form onSubmit={add} className="grid gap-3 rounded-xl border bg-card p-4 md:grid-cols-6">
         <Input required placeholder={t("name")} value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
         <Input placeholder={t("model")} value={f.model} onChange={(e) => setF({ ...f, model: e.target.value })} />
-        <Input required type="number" placeholder={t("price")} value={f.price} onChange={(e) => setF({ ...f, price: e.target.value })} />
+        <Input required type="number" min={0} step="0.01" placeholder={t("price")} value={f.price} onChange={(e) => setF({ ...f, price: e.target.value })} />
         <label className="flex items-center gap-2 text-sm"><Switch checked={f.is_smartphone} onCheckedChange={(v) => setF({ ...f, is_smartphone: v })} />{f.is_smartphone ? t("smartphone") : t("buttonPhone")}</label>
-        {!f.is_smartphone ? <Input type="number" placeholder={t("stock")} value={f.stock_qty} onChange={(e) => setF({ ...f, stock_qty: e.target.value })} /> : <div />}
+        {!f.is_smartphone ? <Input type="number" min={0} step={1} placeholder={t("stock")} value={f.stock_qty} onChange={(e) => setF({ ...f, stock_qty: e.target.value })} /> : <div />}
         <Button disabled={adding}>{t("add")}</Button>
       </form>
       <div className="grid gap-3 md:grid-cols-2">
@@ -150,7 +167,7 @@ function Products() {
                 <Button size="sm" variant="secondary" onClick={() => setImeiFor(p.id)}>{t("addImei")}</Button>
               ) : (
                 <>
-                  <Input className="h-8 w-24" type="number" value={addQty[p.id] ?? ""} onChange={(e) => setAddQty({ ...addQty, [p.id]: e.target.value })} />
+                  <Input className="h-8 w-24" type="number" step={1} value={addQty[p.id] ?? ""} onChange={(e) => setAddQty({ ...addQty, [p.id]: e.target.value })} />
                   <Button size="sm" variant="secondary" onClick={() => addStock(p.id)}>± {t("adjustment")}</Button>
                 </>
               )}
@@ -171,8 +188,8 @@ function Products() {
           <DialogHeader><DialogTitle>{t("addImei")}</DialogTitle></DialogHeader>
           <Label>{t("imeiList")}</Label>
           <Textarea rows={8} value={imeiText} onChange={(e) => setImeiText(e.target.value)} />
-          <div className="space-y-1"><Label>{t("costPrice")}</Label><Input type="number" value={imeiCost} onChange={(e) => setImeiCost(e.target.value)} /></div>
-          <Button onClick={saveImeis}>{t("save")}</Button>
+          <div className="space-y-1"><Label>{t("costPrice")}</Label><Input type="number" min={0.01} step="0.01" value={imeiCost} onChange={(e) => setImeiCost(e.target.value)} /></div>
+          <Button disabled={savingImeis} onClick={saveImeis}>{t("save")}</Button>
         </DialogContent>
       </Dialog>
     </div>
