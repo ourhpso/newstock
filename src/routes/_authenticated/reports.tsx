@@ -3,7 +3,8 @@ import { useMemo, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { FileSpreadsheet, Printer, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useMe, useProducts, useRetailers, useSalesmen } from "@/lib/me";
+import { useMe, useProducts, useRetailers, useSalesmen, type SalesmanSummaryData } from "@/lib/me";
+import { rpc } from "@/lib/rpc";
 import { useT } from "@/lib/i18n";
 import { formatDate, formatInteger, money } from "@/lib/imei";
 import { exportExcelWorkbook } from "@/lib/export";
@@ -76,6 +77,26 @@ function SalesmanReports() {
     },
   });
   const data=query.data;
+  const summaryQuery=useQuery({
+    queryKey:["detailed-report-account-snapshot",me?.id,effectiveSalesman,salesmen.map(s=>s.id).join(",")],
+    enabled:!!me && (!me.isAdmin || salesmen.length>0),
+    queryFn:async()=>{
+      const ids=effectiveSalesman?[effectiveSalesman]:me?.isAdmin?salesmen.map(s=>s.id):me?[me.id]:[];
+      const summaries=await Promise.all(ids.map(async id=>{
+        const {data,error}=await rpc<SalesmanSummaryData>("salesman_summary",{_salesman:id});
+        if(error)throw new Error(error.message);
+        return data;
+      }));
+      const valid=summaries.filter((x):x is SalesmanSummaryData=>!!x);
+      return valid.reduce((a,s)=>({
+        salesTotal:a.salesTotal+s.salesTotal,cashInHand:a.cashInHand+s.cashInHand,
+        retailerDue:a.retailerDue+s.retailerDue,returnsTotal:a.returnsTotal+s.returnsTotal,
+        deposited:a.deposited+s.deposited,owesDealer:a.owesDealer+s.owesDealer,
+        goodsValue:a.goodsValue+s.products.reduce((n,p)=>n+p.value,0),
+        products:a.products+s.products.length,
+      }),{salesTotal:0,cashInHand:0,retailerDue:0,returnsTotal:0,deposited:0,owesDealer:0,goodsValue:0,products:0});
+    },
+  });
   const rows=useMemo(()=>{
     if(!data)return [] as DetailedReportRow[];
     const salesmanName=(id:string)=>salesmen.find(s=>s.id===id)?.full_name??(id===me?.id?me?.profile?.full_name??me?.email??"Me":id.slice(0,8));
@@ -104,7 +125,7 @@ function SalesmanReports() {
   const title=me?.isAdmin?(effectiveSalesman?salesmen.find(s=>s.id===effectiveSalesman)?.full_name??"Salesman report":"Joint salesman report"):"My sales & account report";
   function exportExcel(){
     if(!data)return;
-    const summary=[["Report",title],["From",from],["To",to],["Sales",totals.sales],["Collections",totals.collections],["Retailer returns",totals.returns],["Deposits",totals.deposits],["Issued stock value",totals.stockIssued],["Returned stock value",totals.stockReturned]];
+    const summary=[["Report",title],["From",from],["To",to],["Sales",totals.sales],["Collections",totals.collections],["Retailer returns",totals.returns],["Deposits",totals.deposits],["Issued stock value",totals.stockIssued],["Returned stock value",totals.stockReturned],["Current sales total",summaryQuery.data?.salesTotal??0],["Current cash in hand",summaryQuery.data?.cashInHand??0],["Current retailer due",summaryQuery.data?.retailerDue??0],["Current deposited",summaryQuery.data?.deposited??0],["Current goods value in hand",summaryQuery.data?.goodsValue??0],["Current products in hand",summaryQuery.data?.products??0]];
     const transactions=[["Date","Salesman","Retailer / Dealer","Transaction","Reference","Product / Details","Quantity","Debit","Credit","Note"],...rows.map(r=>[formatDate(r.date),r.salesman,r.retailer,r.type,r.reference,r.product,r.qty,r.debit,r.credit,r.note??""])];
     const customers=[["Retailer","Salesman","Sales","Paid at sale","Collections","Returns","Outstanding"]];
     const customerIds=[...new Set(data.sales.map(s=>s.retailer_id).concat(data.payments.map(p=>p.retailer_id),data.returns.map(r=>r.retailer_id)))];
@@ -124,7 +145,7 @@ function SalesmanReports() {
       <div className="space-y-1"><Label>{t("retailers")}</Label><Select value={retailerId} onValueChange={setRetailerId}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">All customers / dealers</SelectItem>{retailers.map(r=><SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}</SelectContent></Select></div>
     </section>
     <section className="space-y-2 rounded-xl border bg-card p-4"><h2 className="font-semibold">Customize report · Transaction types</h2><div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{TYPES.map(type=><label key={type} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={selectedTypes.includes(type)} onChange={()=>toggleType(type)}/>{labels[type]}</label>)}</div><div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={()=>setSelectedTypes([...TYPES])}>Select all</Button><Button size="sm" variant="outline" onClick={()=>setSelectedTypes([])}>Clear</Button></div></section>
-    <section className="grid grid-cols-2 gap-2 sm:grid-cols-3">{[[t("sales"),totals.sales],[t("collectPayment"),totals.collections],[t("salesReturn"),totals.returns],[t("deposit"),totals.deposits],["Issued stock value",totals.stockIssued],["Returned stock value",totals.stockReturned]].map(([label,value])=><div key={String(label)} className="rounded-xl border bg-card p-3"><div className="text-xs text-muted-foreground">{label}</div><div className="font-display text-lg font-bold">{money(Number(value))}</div></div>)}</section>
+    <section className="space-y-3"><div className="grid grid-cols-2 gap-2 sm:grid-cols-3">{[[t("sales"),totals.sales],[t("collectPayment"),totals.collections],[t("salesReturn"),totals.returns],[t("deposit"),totals.deposits],["Issued stock value",totals.stockIssued],["Returned stock value",totals.stockReturned]].map(([label,value])=><div key={String(label)} className="rounded-xl border bg-card p-3"><div className="text-xs text-muted-foreground">{label}</div><div className="font-display text-lg font-bold">{money(Number(value))}</div></div>)}</div><h2 className="font-semibold">Current account snapshot · All-time</h2><div className="grid grid-cols-2 gap-2 sm:grid-cols-3">{[["Sales total",summaryQuery.data?.salesTotal??0],["Cash in hand",summaryQuery.data?.cashInHand??0],["Retailer due",summaryQuery.data?.retailerDue??0],["Deposited",summaryQuery.data?.deposited??0],["Goods value in hand",summaryQuery.data?.goodsValue??0],["Products with stock",summaryQuery.data?.products??0]].map(([label,value])=><div key={String(label)} className="rounded-xl border bg-accent/20 p-3"><div className="text-xs text-muted-foreground">{label}</div><div className="font-display text-lg font-bold">{typeof value==="number" && String(label)==="Products with stock"?formatInteger(value):money(Number(value))}</div></div>)}</div></section>
     <div className="flex flex-wrap gap-2"><Button disabled={!data||query.isFetching||!rows.length} onClick={exportExcel}><FileSpreadsheet className="mr-1 h-4 w-4"/>Export Excel</Button><Button variant="secondary" disabled={!data||query.isFetching||!rows.length} onClick={printReport}><Printer className="mr-1 h-4 w-4"/>{t("print")} / PDF</Button></div>
     {query.isPending?<p>{t("loading")}</p>:query.isError?<p className="text-destructive">{query.error.message}</p>:<div className="overflow-x-auto rounded-xl border bg-card"><table className="w-full min-w-[850px] text-sm"><thead className="bg-muted"><tr>{["Date","Salesman","Retailer","Type","Reference","Product / Details","Qty","Debit","Credit"].map(x=><th key={x} className="p-2 text-left">{x}</th>)}</tr></thead><tbody>{rows.map((r,i)=><tr key={i} className="border-t"><td className="p-2">{formatDate(r.date)}</td><td className="p-2">{r.salesman}</td><td className="p-2">{r.retailer}</td><td className="p-2">{r.type}</td><td className="p-2">{r.reference}</td><td className="p-2">{r.product}</td><td className="p-2 text-right">{formatInteger(r.qty)}</td><td className="p-2 text-right">{money(r.debit)}</td><td className="p-2 text-right">{money(r.credit)}</td></tr>)}{!rows.length&&<tr><td colSpan={9} className="p-6 text-center text-muted-foreground">{t("noData")}</td></tr>}</tbody></table></div>}
     {printDoc&&<PrintSheet onDone={()=>setPrintDoc(null)}>{printDoc}</PrintSheet>}
