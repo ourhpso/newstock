@@ -93,6 +93,8 @@ function Products() {
       setF({ name: "", model: "", price: "", is_smartphone: true, stock_qty: "" });
       toast.success(t("done"));
       refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error));
     } finally {
       setAdding(false);
     }
@@ -100,7 +102,7 @@ function Products() {
 
   async function saveImeis() {
     if (!imeiFor || savingImeis) return;
-    const raw = imeiText.split(/[\\s,]+/).map((s) => s.trim()).filter(Boolean);
+    const raw = imeiText.split(/[\s,]+/).map((s) => s.trim()).filter(Boolean);
     const list = [...new Set(raw)];
     const cost = Number(imeiCost);
     const bad = raw.filter((i) => !isValidImeiFormat(i));
@@ -114,6 +116,8 @@ function Products() {
       if (error) { toast.error(error.message); return; }
       toast.success(`${list.length} IMEI ${t("done")}`);
       setImeiFor(null); setImeiText(""); setImeiCost(""); refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error));
     } finally { setSavingImeis(false); }
   }
 
@@ -121,9 +125,15 @@ function Products() {
     const n = Number(addQty[id] || 0);
     if (!Number.isInteger(n) || n === 0) { toast.error(t("invalidThreshold")); return; }
     // Signed adjustment through the validated function; writes a movement every time.
-    const { error } = await rpc("receive_stock", { _product: id, _qty: n, _kind: "adjustment", _reason: "Manual stock adjustment", _date: null, _op: null });
-    if (error) { toast.error(error.message); return; }
-    setAddQty({ ...addQty, [id]: "" }); refresh();
+    try {
+      const { error } = await rpc("receive_stock", { _product: id, _qty: n, _kind: "adjustment", _reason: "Manual stock adjustment", _date: null, _op: null });
+      if (error) { toast.error(error.message); return; }
+      setAddQty({ ...addQty, [id]: "" });
+      toast.success(t("done"));
+      refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error));
+    }
   }
 
   function exportStock() {
