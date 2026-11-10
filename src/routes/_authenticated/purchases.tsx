@@ -25,7 +25,7 @@ const todayDhaka = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asi
 const METHODS = ["cash", "bank", "bkash", "nagad"] as const;
 
 function createOperationId() {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return createOperationId();
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return window.crypto.randomUUID();
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
     const r = Math.floor(Math.random() * 16);
     return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
