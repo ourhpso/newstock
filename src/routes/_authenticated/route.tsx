@@ -77,13 +77,13 @@ function Layout() {
   return (
     <div className="min-h-screen pb-20 md:pb-0">
       <header className="sticky top-0 z-20 border-b bg-primary text-primary-foreground">
-        <div className="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-3 py-3 sm:px-4">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-3 py-3 sm:px-4">
           <div className="flex min-w-0 items-center gap-2.5">
             <img src={LOGO_URL} alt={t("companyName")} className="h-10 w-10 shrink-0 rounded-md bg-card object-contain p-0.5 sm:h-12 sm:w-12" />
             <div className="min-w-0">
-            <div className="break-words font-display text-base font-bold sm:text-lg">{t("companyName")}</div>
-            <div className="break-words text-xs leading-relaxed opacity-90 sm:text-sm">{t("appName")}</div>
-            <div className="hidden text-xs opacity-80 sm:block">{t("companyAddress")} · {t("companyPhone")}</div>
+              <div className="break-words font-display text-base font-bold sm:text-lg">{t("companyName")}</div>
+              <div className="break-words text-xs leading-relaxed opacity-90 sm:text-sm">{t("appName")}</div>
+              <div className="hidden text-xs opacity-80 sm:block">{t("companyAddress")} · {t("companyPhone")}</div>
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-1">
@@ -92,15 +92,9 @@ function Layout() {
             <Button size="sm" variant="secondary" onClick={() => setLang(lang === "bn" ? "en" : "bn")}>{lang === "bn" ? "EN" : "বাং"}</Button>
             <Button size="sm" variant="secondary" className="px-2" onClick={signOut}>{t("signOut")}</Button>
           </div>
-          <nav className="col-span-2 hidden flex-wrap gap-1 md:flex">
-            {nav.map((n) => (
-              <Link key={n.to} to={n.to} className="rounded-md px-3 py-1.5 text-sm hover:bg-primary-foreground/10" activeProps={{ className: "bg-accent text-accent-foreground" }}>
-                {t(n.k)}
-              </Link>
-            ))}
-          </nav>
         </div>
       </header>
+      <DesktopSidebar nav={nav} />
       <main className="mx-auto min-w-0 max-w-6xl px-3 py-5 sm:px-4">{me?.active ? <Outlet /> : me ? <p className="text-destructive">{t("accountDisabled")}</p> : null}</main>
       <MobileNav nav={nav} />
     </div>
