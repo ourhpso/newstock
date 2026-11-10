@@ -31,7 +31,7 @@ export function CartBuilder({
   const online = useOnline();
   // Salesman's held IMEIs (cached) let sale/return scans be checked while offline.
   const { data: summary } = useSalesmanSummary(mode === "issue" ? undefined : salesmanId);
-  const stockByProductId = Object.fromEntries((summary?.products ?? []).map((p) => [p.product_id, p.hand]));
+  const stockByProductId: Record<string, number> = Object.fromEntries((summary?.products ?? []).map((p) => [p.product_id, p.hand] as [string, number]));
   const { data: imeiCounts = {} } = useQuery({
     queryKey: ["imei-counts"],
     queryFn: async () => {
