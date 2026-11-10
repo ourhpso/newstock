@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { requireAdmin, useProducts } from "@/lib/me";
 import { rpc } from "@/lib/rpc";
 import { useT } from "@/lib/i18n";
-import { money } from "@/lib/imei";
+import { isValidImeiFormat, money } from "@/lib/imei";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -76,7 +76,8 @@ function Purchases() {
     enabled: suppliers.length > 0,
     queryFn: async () => {
       const entries = await Promise.all(suppliers.map(async (x) => {
-        const { data } = await supabase.rpc("supplier_due", { _supplier: x.id });
+        const { data, error } = await supabase.rpc("supplier_due", { _supplier: x.id });
+        if (error) throw error;
         return [x.id, Number(data ?? 0)] as const;
       }));
       return new Map(entries);
@@ -114,19 +115,34 @@ function Purchases() {
   async function submitPurchase(e: React.FormEvent) {
     e.preventDefault();
     if (busy || !supplierId) return;
-    const built = items.filter((r) => r.product_id).map((r) => {
-      const p = products.find((x) => x.id === r.product_id);
-      if (!p) return null;
-      return p.is_smartphone
-        ? { product_id: p.id, cost_price: Number(r.cost || 0), imeis: [...new Set(r.imeis.split(/[\s,]+/).map((x) => x.trim()).filter(Boolean))] }
-        : { product_id: p.id, cost_price: Number(r.cost || 0), qty: Number(r.qty || 0) };
-    }).filter(Boolean);
-    if (!built.length) return;
-    const allImeis = built.flatMap((b) => ((b as { imeis?: string[] }).imeis ?? []));
+    if (items.some((r) => !r.product_id)) { toast.error(t("selectProduct")); return; }
+    const built: ({ product_id: string; cost_price: number; imeis: string[] } | { product_id: string; cost_price: number; qty: number })[] = [];
+    for (const row of items) {
+      const p = products.find((x) => x.id === row.product_id);
+      if (!p) { toast.error(t("selectProduct")); return; }
+      const cost = Number(row.cost);
+      if (!Number.isFinite(cost) || cost <= 0) { toast.error(t("costPrice")); return; }
+      if (p.is_smartphone) {
+        const imeis = row.imeis.split(/[\\s,]+/).map((x) => x.trim()).filter(Boolean);
+        if (!imeis.length) { toast.error(t("imeiWrong")); return; }
+        const invalid = imeis.filter((imei) => !isValidImeiFormat(imei));
+        if (invalid.length) { toast.error(`${t("imeiWrong")} ${invalid.join(", ")}`); return; }
+        built.push({ product_id: p.id, cost_price: cost, imeis });
+      } else {
+        const qty = Number(row.qty);
+        if (!Number.isInteger(qty) || qty <= 0) { toast.error(t("qty")); return; }
+        built.push({ product_id: p.id, cost_price: cost, qty });
+      }
+    }
+    const allImeis = built.flatMap((b) => ("imeis" in b ? b.imeis : []));
     if (new Set(allImeis).size !== allImeis.length) { toast.error(t("duplicateImei")); return; }
+    const total = built.reduce((sum, line) => sum + ("imeis" in line ? line.imeis.length : line.qty) * line.cost_price, 0);
+    const paidAmount = Number(paid || 0);
+    if (!Number.isFinite(paidAmount) || paidAmount < 0 || paidAmount > total) { toast.error(t("paid")); return; }
+    if (!date) { toast.error(t("date")); return; }
     setBusy(true);
     try {
-      const { error } = await rpc("record_purchase", { _supplier: supplierId, _items: built, _paid: Number(paid || 0), _date: date || null, _op: purchaseOp.current ?? undefined });
+      const { error } = await rpc("record_purchase", { _supplier: supplierId, _items: built, _paid: paidAmount, _date: date, _op: purchaseOp.current ?? undefined });
       if (error) { toast.error(error.message); return; }
       toast.success(t("done"));
       purchaseOp.current = null;
@@ -140,7 +156,7 @@ function Purchases() {
     e.preventDefault();
     if (busy || !paySupplier) return;
     const n = Number(payAmt || 0);
-    if (n <= 0 || n > dueOf(paySupplier)) { toast.error(`${t("supplierDue")}: ${money(dueOf(paySupplier))}`); return; }
+    if (!Number.isFinite(n) || n <= 0 || n > dueOf(paySupplier)) { toast.error(`${t("supplierDue")}: ${money(dueOf(paySupplier))}`); return; }
     setBusy(true);
     try {
       const { error } = await rpc("record_supplier_payment", { _supplier: paySupplier, _amount: n, _method: payMethod, _note: null, _date: todayDhaka(), _op: payOp.current ?? undefined });
@@ -171,7 +187,7 @@ function Purchases() {
             <SelectContent>{suppliers.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
           </Select>
           <div className="space-y-1"><Label>{t("date")}</Label><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
-          <div className="space-y-1"><Label>{t("paid")}</Label><Input type="number" min={0} value={paid} onChange={(e) => setPaid(e.target.value)} /></div>
+          <div className="space-y-1"><Label>{t("paid")}</Label><Input type="number" min={0} step="0.01" value={paid} onChange={(e) => setPaid(e.target.value)} /></div>
         </div>
         {items.map((row, i) => {
           const p = products.find((x) => x.id === row.product_id);
@@ -181,10 +197,10 @@ function Purchases() {
                 <SelectTrigger><SelectValue placeholder={t("selectProduct")} /></SelectTrigger>
                 <SelectContent>{products.map((x) => <SelectItem key={x.id} value={x.id}>{x.name}</SelectItem>)}</SelectContent>
               </Select>
-              <Input type="number" placeholder={t("costPrice")} value={row.cost} onChange={(e) => { const next = [...items]; next[i] = { ...row, cost: e.target.value }; setItems(next); }} />
+              <Input type="number" min={0.01} step="0.01" placeholder={t("costPrice")} value={row.cost} onChange={(e) => { const next = [...items]; next[i] = { ...row, cost: e.target.value }; setItems(next); }} />
               {p?.is_smartphone
                 ? <span className="self-center text-sm text-muted-foreground">{row.imeis.split(/[\s,]+/).filter(Boolean).length} IMEI</span>
-                : <Input type="number" min={1} placeholder={t("qty")} value={row.qty} onChange={(e) => { const next = [...items]; next[i] = { ...row, qty: e.target.value }; setItems(next); }} />}
+                : <Input type="number" min={1} step={1} placeholder={t("qty")} value={row.qty} onChange={(e) => { const next = [...items]; next[i] = { ...row, qty: e.target.value }; setItems(next); }} />}
               <Button type="button" size="sm" variant="ghost" onClick={() => setItems(items.filter((_, x) => x !== i))}>✕</Button>
               {p?.is_smartphone && (
                 <Textarea className="sm:col-span-4" rows={2} placeholder="IMEI list" value={row.imeis} onChange={(e) => { const next = [...items]; next[i] = { ...row, imeis: e.target.value }; setItems(next); }} />
@@ -206,7 +222,7 @@ function Purchases() {
             <SelectTrigger><SelectValue placeholder={t("supplier")} /></SelectTrigger>
             <SelectContent>{suppliers.map((s) => <SelectItem key={s.id} value={s.id}>{s.name} · {money(dueOf(s.id))}</SelectItem>)}</SelectContent>
           </Select>
-          <Input type="number" placeholder={t("amount")} value={payAmt} onChange={(e) => setPayAmt(e.target.value)} />
+          <Input type="number" min={0.01} step="0.01" placeholder={t("amount")} value={payAmt} onChange={(e) => setPayAmt(e.target.value)} />
           <Select value={payMethod} onValueChange={setPayMethod}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>{METHODS.map((m) => <SelectItem key={m} value={m}>{t(m)}</SelectItem>)}</SelectContent>

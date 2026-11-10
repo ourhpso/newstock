@@ -7,7 +7,7 @@ const sr = "22222222-2222-4222-8222-222222222222";
 const phone = "66666666-6666-4666-8666-666666666666";
 const button = "77777777-7777-4777-8777-777777777777";
 const IA = "356938035643809";
-const IB = "356938035643800";
+const IB = "356938035643817";
 
 // Mirrors the exact call sequence the Products page and Stock Issue page make:
 // create product -> register IMEIs / receive opening stock -> check_imei -> issue.
@@ -66,6 +66,20 @@ describe("product add -> SR issue user journey (PGlite)", () => {
     ])])).rejects.toThrow(/Not enough stock/);
     // the valid smartphone line must NOT have been applied on its own
     expect((await one<{ status: string }>(`SELECT status FROM imei_units WHERE imei='${IB}'`)).status).toBe("in_stock");
+  });
+
+
+  it("purchase requires valid non-empty smartphone IMEIs and records stock atomically", async () => {
+    const product = "88888888-8888-4888-8888-888888888888";
+    const supplier = "99999999-9999-4999-8999-999999999999";
+    await db.query(`INSERT INTO suppliers(id,name) VALUES('${supplier}','Test supplier')`);
+    await db.query(`INSERT INTO products(id,name,price,is_smartphone,stock_qty) VALUES('${product}','Test smartphone',20000,true,0)`);
+    await expect(db.query("SELECT record_purchase($1,'[]'::jsonb,0,NULL,NULL)",[supplier])).rejects.toThrow(/At least one purchase item/);
+    await expect(db.query("SELECT record_purchase($1,$2::jsonb,0,NULL,NULL)",[supplier,JSON.stringify([{product_id:product,cost_price:12000,imeis:["490154203237519"]}])])).rejects.toThrow(/Invalid IMEI checksum/);
+    expect((await one<{n:number}>("SELECT count(*)::int n FROM imei_units WHERE product_id=$1",[product])).n).toBe(0);
+    await db.query("SELECT record_purchase($1,$2::jsonb,12000,NULL,NULL)",[supplier,JSON.stringify([{product_id:product,cost_price:12000,imeis:["490154203237518"]}])]);
+    expect((await one<{n:number}>("SELECT count(*)::int n FROM imei_units WHERE product_id=$1 AND status='in_stock'",[product])).n).toBe(1);
+    expect((await one<{n:number}>("SELECT count(*)::int n FROM purchases WHERE supplier_id=$1",[supplier])).n).toBe(1);
   });
 
   it("an already-issued IMEI cannot be issued twice", async () => {

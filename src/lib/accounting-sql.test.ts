@@ -9,7 +9,7 @@ const phone = "66666666-6666-4666-8666-666666666666";
 const button = "77777777-7777-4777-8777-777777777777";
 const retailer = "44444444-4444-4444-8444-444444444444";
 const IMEI1 = "356938035643809";
-const IMEI2 = "356938035643800";
+const IMEI2 = "356938035643817";
 
 describe("accounting chain (all migrations, PGlite)", () => {
   let db: PGlite;
@@ -166,7 +166,7 @@ describe("accounting chain (all migrations, PGlite)", () => {
   const retailer2 = "45454545-4545-4545-8545-454545454545";
   const phone2 = "68686868-6868-4686-8686-686868686868";
   const button2 = "78787878-7878-4787-8787-787878787878";
-  const IMEI3 = "356938035643811";
+  const IMEI3 = "356938035643825";
   let phoneSale1 = ""; let buttonSale = ""; let buttonReturn = ""; let phoneReturn = "";
 
   it("admin-recorded returns belong to the retailer's salesman everywhere", async () => {
