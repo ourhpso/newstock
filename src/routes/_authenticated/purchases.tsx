@@ -1,6 +1,6 @@
 import { pageHead } from "@/lib/page-head";
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,6 +24,14 @@ export const Route = createFileRoute("/_authenticated/purchases")({
 const todayDhaka = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Dhaka" });
 const METHODS = ["cash", "bank", "bkash", "nagad"] as const;
 
+function createOperationId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return createOperationId();
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = Math.floor(Math.random() * 16);
+    return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
+  });
+}
+
 type ItemRow = { product_id: string; cost: string; qty: string; imeis: string };
 
 function Purchases() {
@@ -37,9 +45,9 @@ function Purchases() {
   const [items, setItems] = useState<ItemRow[]>([{ product_id: "", cost: "", qty: "1", imeis: "" }]);
   const [busy, setBusy] = useState(false);
   const purchaseOp = useRef<string | null>(null);
-  if (!purchaseOp.current) purchaseOp.current = crypto.randomUUID();
+  if (!purchaseOp.current) purchaseOp.current = createOperationId();
   const payOp = useRef<string | null>(null);
-  if (!payOp.current) payOp.current = crypto.randomUUID();
+  if (!payOp.current) payOp.current = createOperationId();
   const [payAmt, setPayAmt] = useState("");
   const [payMethod, setPayMethod] = useState<string>("cash");
   const [paySupplier, setPaySupplier] = useState("");
@@ -123,7 +131,7 @@ function Purchases() {
       const cost = Number(row.cost);
       if (!Number.isFinite(cost) || cost <= 0) { toast.error(t("costPrice")); return; }
       if (p.is_smartphone) {
-        const imeis = row.imeis.split(/[\\s,]+/).map((x) => x.trim()).filter(Boolean);
+        const imeis = row.imeis.split(/[\s,]+/).map((x) => x.trim()).filter(Boolean);
         if (!imeis.length) { toast.error(t("imeiWrong")); return; }
         const invalid = imeis.filter((imei) => !isValidImeiFormat(imei));
         if (invalid.length) { toast.error(`${t("imeiWrong")} ${invalid.join(", ")}`); return; }
@@ -149,6 +157,8 @@ function Purchases() {
       setItems([{ product_id: "", cost: "", qty: "1", imeis: "" }]);
       setPaid("");
       refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error));
     } finally { setBusy(false); }
   }
 
@@ -165,6 +175,8 @@ function Purchases() {
       payOp.current = null;
       setPayAmt("");
       refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error));
     } finally { setBusy(false); }
   }
 
