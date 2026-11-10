@@ -43,10 +43,11 @@ function Settlement() {
     <div className="space-y-6">
       <PageTitle>{t("settlement")}</PageTitle>
       {me.isAdmin && (
+        <div className="space-y-2"><SearchHistoryBar value={salesmanSearch} onChange={setSalesmanSearch} historyKey="settlement-salesman" placeholder="Search salesman..." />
         <Select value={picked} onValueChange={setPicked}>
           <SelectTrigger className="w-full sm:w-72"><SelectValue placeholder={t("selectSalesman")} /></SelectTrigger>
           <SelectContent>{visibleSalesmen.map((s) => <SelectItem key={s.id} value={s.id}>{s.full_name}</SelectItem>)}</SelectContent>
-        </Select>
+        </Select></div>
       )}
       {sid && (
         <>
