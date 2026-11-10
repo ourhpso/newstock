@@ -120,6 +120,13 @@
       "when": 1794200000000,
       "tag": "0016_product_purchase_validation",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1794200100000,
+      "tag": "0017_purchase_weighted_cost",
+      "breakpoints": true
     }
   ]
 }
