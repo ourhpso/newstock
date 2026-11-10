@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useProducts, requireAdmin } from "@/lib/me";
 import { useT } from "@/lib/i18n";
-import { isValidImeiFormat, money } from "@/lib/imei";
+import { formatInteger, isValidImeiFormat, money } from "@/lib/imei";
 import { Button } from "@/components/ui/button";
 import { FileSpreadsheet } from "lucide-react";
 import { exportCsv } from "@/lib/export";
@@ -174,7 +174,7 @@ function Products() {
                 <div className="text-sm text-muted-foreground">{p.is_smartphone ? t("smartphone") : t("buttonPhone")} · {money(p.price)} · {t("costPrice")} {money(p.cost_price)}</div>
                 <ProductCatalogAssignment product={p} onSaved={refresh} />
               </div>
-              <div className="text-right"><div className="text-xs text-muted-foreground">{t("stock")}</div><div className="font-display text-2xl font-bold">{p.is_smartphone ? counts[p.id] ?? 0 : p.stock_qty}</div></div>
+              <div className="text-right"><div className="text-xs text-muted-foreground">{t("stock")}</div><div className="font-display text-2xl font-bold">{formatInteger(p.is_smartphone ? counts[p.id] ?? 0 : p.stock_qty)}</div></div>
             </div>
             <div className="mt-3 flex gap-2">
               <RecordActions table="products" id={p.id} fields={[{ key: "name", label: "name", value: p.name }, { key: "model", label: "model", value: p.model }, { key: "price", label: "price", value: Number(p.price), type: "number" }]} />
