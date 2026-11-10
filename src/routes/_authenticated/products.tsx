@@ -20,6 +20,8 @@ import { useQuery } from "@tanstack/react-query";
 import { RecordActions } from "@/components/RecordActions";
 import { rpc } from "@/lib/rpc";
 import { BrandModelFields, useProductCatalog } from "@/components/BrandModelPicker";
+import { SearchHistoryBar } from "@/components/SearchHistoryBar";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export const Route = createFileRoute("/_authenticated/products")({
   beforeLoad: requireAdmin,
@@ -32,6 +34,9 @@ function Products() {
   const qc = useQueryClient();
   const { data: products = [] } = useProducts();
   const { brands, models } = useProductCatalog();
+  const [search, setSearch] = useState("");
+  const [filterBrand, setFilterBrand] = useState("all");
+  const [stockFilter, setStockFilter] = useState("all");
   const [brandId, setBrandId] = useState("");
   const [modelId, setModelId] = useState("");
   const { data: counts = {} } = useQuery({
@@ -49,7 +54,7 @@ function Products() {
   const [addQty, setAddQty] = useState<Record<string, string>>({});
   const [limits, setLimits] = useState<Record<string, string>>({});
   const [savingLimit, setSavingLimit] = useState<string | null>(null);
-  const refresh = () => { qc.invalidateQueries({ queryKey: ["products"] }); qc.invalidateQueries({ queryKey: ["imei-counts"] }); qc.invalidateQueries({ queryKey: ["dashboard-insights"] }); };
+  const filteredProducts = products.filter((p) => {\n    const brand = brands.find((b) => b.id === (p as any).brand_id)?.name ?? "";\n    const model = models.find((m) => m.id === (p as any).model_id)?.name ?? p.model ?? "";\n    const q = search.trim().toLowerCase();\n    const matchesText = !q || [p.name, p.model, brand, model].some((v) => String(v ?? "").toLowerCase().includes(q));\n    const qty = p.is_smartphone ? counts[p.id] ?? 0 : p.stock_qty;\n    return matchesText && (filterBrand === "all" || (p as any).brand_id === filterBrand) && (stockFilter === "all" || (stockFilter === "in" ? qty > 0 : qty <= 0));\n  });\n  const refresh = () => { qc.invalidateQueries({ queryKey: ["products"] }); qc.invalidateQueries({ queryKey: ["imei-counts"] }); qc.invalidateQueries({ queryKey: ["dashboard-insights"] }); };
 
   async function saveLimit(id: string, current: number) {
     const raw = limits[id] ?? String(current);
