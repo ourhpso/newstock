@@ -95,7 +95,7 @@ function SalesmanReports() {
         retailerDue:a.retailerDue+s.retailerDue,returnsTotal:a.returnsTotal+s.returnsTotal,
         deposited:a.deposited+s.deposited,owesDealer:a.owesDealer+s.owesDealer,
         goodsValue:a.goodsValue+s.products.reduce((n,p)=>n+p.value,0),
-        products:a.products+s.products.length,
+        products:a.products+s.products.filter(p=>p.hand>0).length,
       }),{salesTotal:0,cashInHand:0,retailerDue:0,returnsTotal:0,deposited:0,owesDealer:0,goodsValue:0,products:0});
     },
   });
