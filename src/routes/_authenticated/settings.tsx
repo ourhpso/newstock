@@ -143,7 +143,7 @@ function AccountCorrections() {
       const fields = table === "retailer_payments" || table === "deposits" ? [{ key: "amount", label: "amount" as const, value: r.amount ?? 0, type: "number" as const }, { key: "note", label: "note" as const, value: r.note ?? "" }] : [];
       return <div key={r.id} className="flex items-center justify-between gap-2 py-3"><div className="min-w-0"><p className="break-all text-sm font-semibold">{r.imei ?? (r.amount != null ? money(r.amount) : r.total != null ? money(r.total) : `${r.kind} · ${formatInteger(r.qty)}`)}</p><p className="text-xs text-muted-foreground">{formatDateTime(r.created_at)}</p><p className="break-all text-xs text-muted-foreground">{r.id}</p></div><RecordActions table={table} id={r.id} fields={fields} /></div>;
     })}</div>
-    <div className="flex justify-end gap-2"><Button variant="outline" disabled={page === 0} onClick={() => setPage(page - 1)}>←</Button><span className="self-center text-sm">{page + 1}</span><Button variant="outline" disabled={data.length < 50} onClick={() => setPage(page + 1)}>→</Button></div>
+    <div className="flex justify-end gap-2"><Button variant="outline" disabled={page === 0} onClick={() => setPage(page - 1)}>←</Button><span className="self-center text-sm">{formatInteger(page + 1)}</span><Button variant="outline" disabled={data.length < 50} onClick={() => setPage(page + 1)}>→</Button></div>
     <h3 className="font-semibold">{t("auditLog")}</h3><div className="max-h-60 overflow-auto divide-y text-sm">{audit.map((a) => <div key={a.id} className="py-2"><span>{a.action} · {a.entity ? t(tableLabel[a.entity] ?? "salesmen") : t("settings")}</span><p className="break-words text-muted-foreground">{a.reason} · {formatDateTime(a.created_at)}</p></div>)}</div>
   </section>;
 }
