@@ -37,10 +37,10 @@ export const formatInteger = (n: number | string | null | undefined) => formatNu
 
 /** Date/time labels also use an English locale so digits never switch with UI language. */
 export const formatDateTime = (value: string | number | Date) =>
-  new Date(value).toLocaleString("en-GB", { timeZone: "Asia/Dhaka", dateStyle: "medium", timeStyle: "short" });
+  (value instanceof Date ? value : new Date(value)).toLocaleString("en-GB", { timeZone: "Asia/Dhaka", dateStyle: "medium", timeStyle: "short" });
 
 export const formatDate = (value: string | number | Date) =>
-  new Date(value).toLocaleDateString("en-GB", { timeZone: "Asia/Dhaka", dateStyle: "medium" });
+  (value instanceof Date ? value : new Date(value)).toLocaleDateString("en-GB", { timeZone: "Asia/Dhaka", dateStyle: "medium" });
 
 export const money = (n: number | string | null | undefined) =>
   "৳" + formatNumber(n, 2);
