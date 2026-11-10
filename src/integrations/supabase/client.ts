@@ -79,9 +79,13 @@ let _supabase: ReturnType<typeof createSupabaseClient> | undefined;
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 export const supabase = new Proxy({} as ReturnType<typeof createSupabaseClient>, {
-  get(_, prop, receiver) {
+  get(_, prop) {
     if (!_supabase) _supabase = createSupabaseClient();
-    return Reflect.get(_supabase, prop, receiver);
+    // Preserve the real SupabaseClient as the receiver for getters and methods.
+    // Unbound methods would run with the Proxy as this and break internal
+    // access to client properties such as rest.
+    const value = Reflect.get(_supabase, prop, _supabase);
+    return typeof value === 'function' ? value.bind(_supabase) : value;
   },
 });
 
