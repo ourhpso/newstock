@@ -169,6 +169,7 @@ async function runEntry(entry: QueueEntry) {
 export type RunResult = { s: "done"; data: unknown } | { s: "queued" } | { s: "error"; error: string };
 
 export async function runOrQueue(op: QueuedOp, offline: boolean, userId: string | null = null): Promise<RunResult> {
+  if (!userId) return { s: "error", error: "Sign in is required before saving or syncing offline transactions." };
   const entry: QueueEntry = { id: newId(), createdAt: new Date().toISOString(), userId, attempts: 0, lastError: null, op };
   if (!offline) {
     const { data, error } = await runEntry(entry);
@@ -187,6 +188,8 @@ export async function runOrQueue(op: QueuedOp, offline: boolean, userId: string 
 export type ReplayResult = { synced: number; failed: number; firstError: string | null };
 let replayInFlight: Promise<ReplayResult> | null = null;
 export function replayQueue(currentUserId: string | null = null): Promise<ReplayResult> {
+  // Never replay legacy/unowned queue entries or any entries while signed out.
+  if (!currentUserId) return Promise.resolve({ synced: 0, failed: 0, firstError: null });
   if (replayInFlight) return replayInFlight;
   replayInFlight = replayQueueOnce(currentUserId).finally(() => { replayInFlight = null; });
   return replayInFlight;
@@ -199,7 +202,8 @@ async function replayQueueOnce(currentUserId: string | null): Promise<ReplayResu
   let failed = 0;
   let firstError: string | null = null;
   for (const entry of entries) {
-    if (entry.userId && currentUserId && entry.userId !== currentUserId) continue;
+    // Strict equality: null/legacy entries are quarantined, never sent to Supabase.
+    if (!entry.userId || entry.userId !== currentUserId) continue;
     const { error } = await runEntry(entry);
     if (error) {
       failed += 1;
