@@ -110,11 +110,25 @@ describe("offline queue legacy upgrade", () => {
     expect(stored[0].id).toBe(first[0]?.id);
   });
 
+  it("isolates legacy rows by owner and quarantines unowned rows", () => {
+    const row = (id: string, userId?: string) => ({ id, userId, createdAt: "2026-11-02T00:00:00Z", op: pay(10) });
+    window.localStorage.setItem("offline-queue-v1", JSON.stringify([
+      row("1730000000000-0", "user-a"),
+      row("1730000000000-1", "user-b"),
+      row("1730000000000-2"),
+    ]));
+    expect(getQueue("user-a")).toHaveLength(1);
+    expect(getQueue("user-b")).toHaveLength(1);
+    expect(getQueue("user-c")).toHaveLength(0);
+    const legacy = JSON.parse(window.localStorage.getItem("offline-queue-v1") ?? "[]");
+    expect(legacy).toHaveLength(2);
+    expect(legacy.map((entry: { userId?: string }) => entry.userId)).toEqual(["user-b", undefined]);
+  });
   it("converts v1 payloads to the validated RPC shapes", async () => {
     window.localStorage.setItem("offline-queue-v1", JSON.stringify([
-      { id: "1730000000000-0", createdAt: "2026-11-02T00:00:00Z", op: { kind: "deposit", payload: { salesman_id: "s1", amount: 700, note: "old" } } },
-      { id: "1730000000000-1", createdAt: "2026-11-02T00:01:00Z", op: { kind: "retailer_payment", payload: { retailer_id: "r1", amount: 300 } } },
-      { id: "1730000000000-2", createdAt: "2026-11-02T00:02:00Z", op: { kind: "record_sale", payload: { _retailer: "r1", _items: [], _paid: 10 } } },
+      { id: "1730000000000-0", userId: "user-a", createdAt: "2026-11-02T00:00:00Z", op: { kind: "deposit", payload: { salesman_id: "s1", amount: 700, note: "old" } } },
+      { id: "1730000000000-1", userId: "user-a", createdAt: "2026-11-02T00:01:00Z", op: { kind: "retailer_payment", payload: { retailer_id: "r1", amount: 300 } } },
+      { id: "1730000000000-2", userId: "user-a", createdAt: "2026-11-02T00:02:00Z", op: { kind: "record_sale", payload: { _retailer: "r1", _items: [], _paid: 10 } } },
     ]));
     const res = await replayQueue("user-a");
     expect(res.synced).toBe(3);
