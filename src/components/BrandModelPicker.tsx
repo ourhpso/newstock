@@ -37,7 +37,7 @@ export function useProductLabel() {
   return (productId: string) => {
     const p = products.find((x) => x.id === productId);
     if (!p) return "";
-    const brand = brands.find((b) => b.id === (p as any).brand_id)?.name;
+    const brand = brands.find((b) => b.id === (p as any).brand_id)?.name ?? "OTHER";
     const model = models.find((m) => m.id === (p as any).model_id)?.name ?? p.model ?? "";
     return [brand, model || p.name].filter(Boolean).join(" ");
   };
@@ -76,10 +76,13 @@ export function BrandModelProductPicker({
     });
     return () => { active = false; };
   }, []);
+  const otherBrandId = brands.find((b) => b.name === "OTHER")?.id;
   const brandModels = models.filter((m) => m.brand_id === brandId);
-  const brandProducts = products.filter((p) => (p as any).brand_id === brandId && (!onlyProductIds || onlyProductIds.includes(p.id)) && (!excludeSmartphones || !p.is_smartphone));
-  const availableModels = brandModels.filter((m) => brandProducts.some((p) => (p as any).model_id === m.id));
-  const matchingProducts = brandProducts.filter((p) => (p as any).model_id === modelId);
+  const brandProducts = products.filter((p) => ((p as any).brand_id === brandId || (brandId === otherBrandId && !(p as any).brand_id)) && (!onlyProductIds || onlyProductIds.includes(p.id)) && (!excludeSmartphones || !p.is_smartphone));
+  const productModelName = (p: any) => String(p.model ?? p.name).trim().toLowerCase();
+  const availableModels = brandModels.filter((m) => brandProducts.some((p) => (p as any).model_id === m.id || (!(p as any).model_id && productModelName(p) === m.name.trim().toLowerCase())));
+  const matchingModels = brandModels.filter((m) => m.id === modelId);
+  const matchingProducts = brandProducts.filter((p) => (p as any).model_id === modelId || (!(p as any).model_id && matchingModels.some((m) => productModelName(p) === m.name.trim().toLowerCase())));
   async function addBrand() {
     const name = newBrand.trim().toUpperCase();
     if (!name) return;
