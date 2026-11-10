@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { requireAdmin, useProducts } from "@/lib/me";
 import { rpc } from "@/lib/rpc";
 import { useT } from "@/lib/i18n";
-import { isValidImeiFormat, money } from "@/lib/imei";
+import { formatInteger, isValidImeiFormat, money } from "@/lib/imei";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
