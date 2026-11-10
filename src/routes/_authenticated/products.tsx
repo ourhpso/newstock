@@ -19,6 +19,7 @@ import { PageTitle } from "@/components/Stat";
 import { useQuery } from "@tanstack/react-query";
 import { RecordActions } from "@/components/RecordActions";
 import { rpc } from "@/lib/rpc";
+import { BrandModelFields, useProductCatalog } from "@/components/BrandModelPicker";
 
 export const Route = createFileRoute("/_authenticated/products")({
   beforeLoad: requireAdmin,
@@ -30,6 +31,9 @@ function Products() {
   const { t } = useT();
   const qc = useQueryClient();
   const { data: products = [] } = useProducts();
+  const { brands, models } = useProductCatalog();
+  const [brandId, setBrandId] = useState("");
+  const [modelId, setModelId] = useState("");
   const { data: counts = {} } = useQuery({
     queryKey: ["imei-counts"],
     queryFn: async () => {
@@ -38,7 +42,7 @@ function Products() {
       return data as Record<string, number>;
     },
   });
-  const [f, setF] = useState({ name: "", model: "", price: "", is_smartphone: true, stock_qty: "" });
+  const [f, setF] = useState({ price: "", is_smartphone: true, stock_qty: "" });
   const [imeiFor, setImeiFor] = useState<string | null>(null);
   const [imeiText, setImeiText] = useState("");
   const [imeiCost, setImeiCost] = useState("");
@@ -64,10 +68,12 @@ function Products() {
   async function add(e: React.FormEvent) {
     e.preventDefault();
     if (adding) return;
-    const name = f.name.trim();
+    const brand = brands.find((x) => x.id === brandId);
+    const model = models.find((x) => x.id === modelId && x.brand_id === brandId);
+    const name = brand && model ? `${brand.name} ${model.name}` : "";
     const price = Number(f.price);
     const opening = f.is_smartphone ? 0 : Number(f.stock_qty || 0);
-    if (!name || !Number.isFinite(price) || price < 0 || !Number.isInteger(opening) || opening < 0) {
+    if (!brandId || !modelId || !name || !Number.isFinite(price) || price < 0 || !Number.isInteger(opening) || opening < 0) {
       toast.error(t("invalidThreshold"));
       return;
     }
@@ -76,7 +82,7 @@ function Products() {
       // Products always start at zero stock; opening stock enters through
       // receive_stock so the movement ledger can reconcile from day one.
       const { data, error } = await supabase.from("products").insert({
-        name, model: f.model.trim() || null, price, is_smartphone: f.is_smartphone, stock_qty: 0,
+        name, model: model?.name ?? null, brand_id: brandId, model_id: modelId, price, is_smartphone: f.is_smartphone, stock_qty: 0,
       }).select("id").single();
       if (error) { toast.error(error.message); return; }
       if (opening > 0 && data) {
@@ -85,7 +91,7 @@ function Products() {
           // The product now exists — do NOT invite a resubmit (it would create
           // a duplicate). Stock can be added from the product card's ± box.
           toast.error(`${stockError.message} — ${t("productCreatedNoStock")}`);
-          setF({ name: "", model: "", price: "", is_smartphone: true, stock_qty: "" });
+          setF({ price: "", is_smartphone: true, stock_qty: "" }); setBrandId(""); setModelId("");
           refresh();
           return;
         }
@@ -153,8 +159,7 @@ function Products() {
         </Button>
       </div>
       <form onSubmit={add} className="grid gap-3 rounded-xl border bg-card p-4 md:grid-cols-6">
-        <Input required placeholder={t("name")} value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
-        <Input placeholder={t("model")} value={f.model} onChange={(e) => setF({ ...f, model: e.target.value })} />
+        <BrandModelFields brandId={brandId} modelId={modelId} onBrandChange={setBrandId} onModelChange={setModelId} allowManage />
         <Input required type="number" min={0} step="0.01" placeholder={t("price")} value={f.price} onChange={(e) => setF({ ...f, price: e.target.value })} />
         <label className="flex items-center gap-2 text-sm"><Switch checked={f.is_smartphone} onCheckedChange={(v) => setF({ ...f, is_smartphone: v })} />{f.is_smartphone ? t("smartphone") : t("buttonPhone")}</label>
         {!f.is_smartphone ? <Input type="number" min={0} step={1} placeholder={t("stock")} value={f.stock_qty} onChange={(e) => setF({ ...f, stock_qty: e.target.value })} /> : <div />}
@@ -165,7 +170,7 @@ function Products() {
           <div key={p.id} className="rounded-xl border bg-card p-4">
             <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
               <div className="min-w-0 break-words">
-                <div className="font-display text-lg font-bold">{p.name} <span className="text-sm font-normal text-muted-foreground">{p.model}</span></div>
+                <div className="font-display text-lg font-bold">{{brands.find((b) => b.id === (p as any).brand_id)?.name ?? ""} {models.find((m) => m.id === (p as any).model_id)?.name ?? p.model ?? p.name} <span className="text-sm font-normal text-muted-foreground">{p.name}</span></div>
                 <div className="text-sm text-muted-foreground">{p.is_smartphone ? t("smartphone") : t("buttonPhone")} · {money(p.price)} · {t("costPrice")} {money(p.cost_price)}</div>
               </div>
               <div className="text-right"><div className="text-xs text-muted-foreground">{t("stock")}</div><div className="font-display text-2xl font-bold">{p.is_smartphone ? counts[p.id] ?? 0 : p.stock_qty}</div></div>
