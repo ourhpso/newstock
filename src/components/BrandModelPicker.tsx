@@ -45,7 +45,7 @@ export function useProductLabel() {
 
 /** Cascading brand -> model -> stocked product selector. Admins can extend the catalog inline. */
 export function BrandModelProductPicker({
-  value, onChange, allowManage = false, placeholder = "Select product", showStock = true, onlyProductIds, excludeSmartphones = false,
+  value, onChange, allowManage = false, placeholder = "Select product", showStock = true, onlyProductIds, excludeSmartphones = false, stockByProductId,
 }: {
   value: string;
   onChange: (productId: string) => void;
@@ -54,6 +54,7 @@ export function BrandModelProductPicker({
   showStock?: boolean;
   onlyProductIds?: string[];
   excludeSmartphones?: boolean;
+  stockByProductId?: Record<string, number>;
 }) {
   const db = supabase as any;
   const qc = useQueryClient();
@@ -126,7 +127,7 @@ export function BrandModelProductPicker({
         <SelectContent>
           {matchingProducts.map((p) => (
             <SelectItem key={p.id} value={p.id}>
-              {(p as any).name} {showStock ? `· Stock: ${p.is_smartphone ? counts[p.id] ?? 0 : p.stock_qty}` : ""}
+              {(p as any).name} {showStock ? `· Stock: ${stockByProductId?.[p.id] ?? (p.is_smartphone ? counts[p.id] ?? 0 : p.stock_qty)}` : ""}
             </SelectItem>
           ))}
         </SelectContent>
