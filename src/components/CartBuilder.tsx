@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProducts, useSalesmanSummary } from "@/lib/me";
+import { BrandModelProductPicker, useProductLabel } from "@/components/BrandModelPicker";
 import { isNetworkFailure, useOnline } from "@/lib/offline";
 import { useT } from "@/lib/i18n";
 import { money } from "@/lib/imei";
@@ -25,6 +26,7 @@ export function CartBuilder({
 }) {
   const { t } = useT();
   const { data: products = [] } = useProducts();
+  const productLabel = useProductLabel();
   const online = useOnline();
   // Salesman's held IMEIs (cached) let sale/return scans be checked while offline.
   const { data: summary } = useSalesmanSummary(mode === "issue" ? undefined : salesmanId);
@@ -46,7 +48,7 @@ export function CartBuilder({
       const next = [...cart];
       const line = next.find((l) => l.product_id === p.id);
       if (line) { line.imeis = [...line.imeis, imei]; line.qty = line.imeis.length; }
-      else next.push({ product_id: p.id, name: p.name, isSmart: true, qty: 1, unit_price: Number(p.price), imeis: [imei] });
+      else next.push({ product_id: p.id, name: productLabel(p.id) || p.name, isSmart: true, qty: 1, unit_price: Number(p.price), imeis: [imei] });
       setCart(next);
       return { ok: true, message: p.name };
     }
@@ -56,7 +58,7 @@ export function CartBuilder({
     const next = [...cart];
     const line = next.find((l) => l.product_id === r.product_id);
     if (line) { line.imeis = [...line.imeis, imei]; line.qty = line.imeis.length; }
-    else next.push({ product_id: r.product_id, name: r.product_name, isSmart: true, qty: 1, unit_price: Number(r.price), imeis: [imei] });
+    else next.push({ product_id: r.product_id, name: productLabel(r.product_id) || r.product_name, isSmart: true, qty: 1, unit_price: Number(r.price), imeis: [imei] });
     setCart(next);
     return { ok: true, message: r.product_name };
   }
@@ -77,7 +79,7 @@ export function CartBuilder({
     }
     const next = cart.filter((l) => l.product_id !== p.id);
     const prev = cart.find((l) => l.product_id === p.id);
-    next.push({ product_id: p.id, name: p.name, isSmart: false, qty: (prev?.qty ?? 0) + n, unit_price: Number(p.price), imeis: [] });
+    next.push({ product_id: p.id, name: productLabel(p.id) || p.name, isSmart: false, qty: (prev?.qty ?? 0) + n, unit_price: Number(p.price), imeis: [] });
     setCart(next);
     setQty("1");
   }
@@ -91,10 +93,9 @@ export function CartBuilder({
       </div>
       <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 rounded-lg border bg-card p-4 sm:grid-cols-[minmax(0,1fr)_6rem_auto]">
         <div className="col-span-full text-sm font-semibold">{t("buttonPhone")}</div>
-        <Select value={pid} onValueChange={setPid}>
-          <SelectTrigger className="col-span-full w-full min-w-0 sm:col-span-1"><SelectValue placeholder={t("selectProduct")} /></SelectTrigger>
-          <SelectContent>{buttonProducts.map((p) => <SelectItem key={p.id} value={p.id}>{p.name} {mode === "issue" ? `(${p.stock_qty})` : ""}</SelectItem>)}</SelectContent>
-        </Select>
+        <div className="col-span-full sm:col-span-1">
+          <BrandModelProductPicker value={pid} placeholder={t("selectProduct")} onChange={setPid} />
+        </div>
         <Input className="w-full min-w-0" type="number" min={1} value={qty} onChange={(e) => setQty(e.target.value)} />
         <Button type="button" variant="secondary" onClick={addButton}>{t("add")}</Button>
       </div>
