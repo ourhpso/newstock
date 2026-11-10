@@ -29,7 +29,7 @@ export function backupCounts(backup: BusinessBackup) {
   return BUSINESS_TABLES.map((table) => ({ table, count: backup.tables[table].length }));
 }
 export const recordSchema = z.object({
-  table: z.enum(["products", "retailers", "profiles", "sales", "retailer_payments", "deposits", "stock_movements", "imei_units"]),
+  table: z.enum(["products", "retailers", "profiles", "sales", "retailer_payments", "deposits", "stock_movements", "imei_units", "purchases", "supplier_payments", "expenses", "retailer_returns"]),
   id: z.string().uuid(), action: z.enum(["update", "delete"]),
   values: z.record(z.string(), z.union([z.string(), z.number().finite(), z.boolean(), z.null()])).default({}), reason: z.string().trim().min(3).max(500),
 });

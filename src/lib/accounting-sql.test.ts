@@ -48,7 +48,6 @@ describe("accounting chain (all migrations, PGlite)", () => {
     await db.query("SELECT record_supplier_payment($1,45000,'bank',NULL,'2026-11-02',NULL)", [supplier]);
     expect(Number((await one<{ supplier_due: string }>("SELECT supplier_due($1)", [supplier])).supplier_due)).toBe(0);
   });
-
   it("direct stock edits are blocked; receive_stock writes a movement", async () => {
     await as(owner);
     // Direct API writes arrive as the 'authenticated' role; the guard keys on that.
@@ -161,5 +160,110 @@ describe("accounting chain (all migrations, PGlite)", () => {
     await expect(db.query("SELECT cancel_business_history('sales',$1,'Wrong entry')", [s1])).rejects.toThrow("already cover this invoice");
     await db.query("SELECT cancel_business_history('sales',$1,'Wrong entry')", [s2]);
     expect((await one<{ n: number }>(`SELECT count(*)::int n FROM sales WHERE id='${s2}'`)).n).toBe(0);
+  });
+  // ---------- 0014: full-workflow audit fixes ----------
+  const sr2 = "33333333-3333-4333-8333-333333333333";
+  const retailer2 = "45454545-4545-4545-8545-454545454545";
+  const phone2 = "68686868-6868-4686-8686-686868686868";
+  const button2 = "78787878-7878-4787-8787-787878787878";
+  const IMEI3 = "356938035643811";
+  let phoneSale1 = ""; let buttonSale = ""; let buttonReturn = ""; let phoneReturn = "";
+
+  it("admin-recorded returns belong to the retailer's salesman everywhere", async () => {
+    await db.query(`INSERT INTO auth.users(id) VALUES('${sr2}')`);
+    await db.query(`INSERT INTO products(id, name, is_smartphone, price) VALUES('${phone2}','Phone Two', true, 20000), ('${button2}','Button Two', false, 1000)`);
+    await db.query(`INSERT INTO retailers(id, name, salesman_id, due_days) VALUES('${retailer2}','Shop Two','${sr2}',7)`);
+    await as(owner);
+    await one("SELECT record_purchase($1,$2::jsonb,0,'2026-11-01',$3)", [supplier, JSON.stringify([
+      { product_id: phone2, cost_price: 15000, imeis: [IMEI3] },
+      { product_id: button2, cost_price: 800, qty: 10 },
+    ]), "a0000000-0000-4000-8000-000000000101"]);
+    await one("SELECT issue_stock($1,$2::jsonb,current_date,$3)", [sr2, JSON.stringify([{ product_id: phone2, imeis: [IMEI3] }, { product_id: button2, qty: 6 }]), "a0000000-0000-4000-8000-000000000102"]);
+    await as(sr2);
+    phoneSale1 = (await one<{ record_sale: string }>("SELECT record_sale($1,$2::jsonb,5000,0,current_date,$3)", [retailer2, JSON.stringify([{ product_id: phone2, unit_price: 20000, imeis: [IMEI3] }]), "a0000000-0000-4000-8000-000000000103"])).record_sale;
+    buttonSale = (await one<{ record_sale: string }>("SELECT record_sale($1,$2::jsonb,1500,0,(now() AT TIME ZONE 'Asia/Dhaka')::date - 10,$3)", [retailer2, JSON.stringify([{ product_id: button2, unit_price: 1000, qty: 4 }]), "a0000000-0000-4000-8000-000000000104"])).record_sale;
+    // ADMIN records both returns (the owner helping at the shop)
+    await as(owner);
+    phoneReturn = (await one<{ record_retailer_return: string }>("SELECT record_retailer_return($1,$2::jsonb,current_date,$3)", [retailer2, JSON.stringify([{ product_id: phone2, unit_price: 15000, imeis: [IMEI3] }]), "a0000000-0000-4000-8000-000000000105"])).record_retailer_return;
+    buttonReturn = (await one<{ record_retailer_return: string }>("SELECT record_retailer_return($1,$2::jsonb,current_date,$3)", [retailer2, JSON.stringify([{ product_id: button2, unit_price: 1000, qty: 1 }]), "a0000000-0000-4000-8000-000000000106"])).record_retailer_return;
+    const rr = await one<{ n: number }>(`SELECT count(*)::int n FROM retailer_returns WHERE retailer_id='${retailer2}' AND salesman_id='${sr2}'`);
+    expect(rr.n).toBe(2);
+    const mv = await one<{ n: number }>(`SELECT count(*)::int n FROM stock_movements WHERE kind='sale_return' AND retailer_id='${retailer2}' AND salesman_id='${sr2}'`);
+    expect(mv.n).toBe(2);
+    const unit = await one<{ salesman_id: string; status: string }>(`SELECT salesman_id, status FROM imei_units WHERE imei='${IMEI3}'`);
+    expect(unit.salesman_id).toBe(sr2); expect(unit.status).toBe("with_salesman");
+    // the salesman can see the return rows and resell the returned phone
+    await as(sr2);
+    expect((await one<{ n: number }>(`SELECT count(*)::int n FROM retailer_returns WHERE salesman_id='${sr2}'`)).n).toBe(2);
+    const resale = await one<{ record_sale: string }>("SELECT record_sale($1,$2::jsonb,0,0,current_date,$3)", [retailer2, JSON.stringify([{ product_id: phone2, unit_price: 20000, imeis: [IMEI3] }]), "a0000000-0000-4000-8000-000000000107"]);
+    expect(resale.record_sale).toBeTruthy();
+    // overdue uses each retailer's own due_days: retailer3 (7 days) has a
+    // 10-day-old invoice with 2000 outstanding -> fully overdue at 7, not at 30.
+    await db.query(`INSERT INTO retailers(id, name, salesman_id, due_days) VALUES('46464646-4646-4646-8646-464646464646','Shop Three','${sr2}',7)`);
+    await as(sr2);
+    await one("SELECT record_sale($1,$2::jsonb,1000,0,(now() AT TIME ZONE 'Asia/Dhaka')::date - 10,$3)", ["46464646-4646-4646-8646-464646464646", JSON.stringify([{ product_id: button2, unit_price: 1000, qty: 3 }]), "a0000000-0000-4000-8000-000000000108"]);
+    await as(owner);
+    const risk = await one<{ dealer_risk_history: any }>("SELECT dealer_risk_history()");
+    const entry = (risk.dealer_risk_history as any[]).find((x) => x.id === "46464646-4646-4646-8646-464646464646");
+    expect(Number(entry.overdue_amount)).toBe(2000);
+    expect(Number(entry.total_due)).toBe(2000);
+  });
+
+  it("salesman_summary matches the canonical money formulas", async () => {
+    await as(sr2);
+    const sum = await one<{ salesman_summary: any }>("SELECT salesman_summary($1)", [sr2]);
+    const s = sum.salesman_summary;
+    expect(Number(s.salesTotal)).toBe(47000);
+    expect(Number(s.cashInHand)).toBe(7500);
+    expect(Number(s.retailerDue)).toBe(23500);
+    expect(Number(s.returnsTotal)).toBe(16000);
+    const b = (s.products as any[]).find((p) => p.product_id === button2);
+    expect(Number(b.hand)).toBe(0); expect(Number(b.issued)).toBe(6); expect(Number(b.sold)).toBe(7);
+    const ph = (s.products as any[]).find((p) => p.product_id === phone2);
+    expect(Number(ph.hand)).toBe(0);
+    // supplier dues are owner-only now
+    await expect(one("SELECT supplier_due($1)", [supplier])).rejects.toThrow("Owner only");
+  });
+
+  it("corrections exist for purchases, expenses, supplier payments and returns - with cash guards", async () => {
+    await as(owner);
+    // purchase cancel reverses stock + supplier due
+    const dueBefore = Number((await one<{ supplier_due: number }>("SELECT supplier_due($1)", [supplier])).supplier_due);
+    const p2 = (await one<{ record_purchase: string }>("SELECT record_purchase($1,$2::jsonb,0,'2026-11-02',$3)", [supplier, JSON.stringify([{ product_id: button2, cost_price: 800, qty: 5 }]), "a0000000-0000-4000-8000-000000000201"])).record_purchase;
+    expect((await one<{ stock_qty: number }>(`SELECT stock_qty FROM products WHERE id='${button2}'`)).stock_qty).toBe(9);
+    await db.query("SELECT cancel_business_history('purchases',$1,'Wrong purchase')", [p2]);
+    expect((await one<{ stock_qty: number }>(`SELECT stock_qty FROM products WHERE id='${button2}'`)).stock_qty).toBe(4);
+    expect(Number((await one<{ supplier_due: number }>("SELECT supplier_due($1)", [supplier])).supplier_due)).toBe(dueBefore);
+    // expense + supplier payment cancels
+    const ex = (await one<{ record_expense: string }>("SELECT record_expense('Rent',700,null,'2026-11-02',$1)", ["a0000000-0000-4000-8000-000000000202"])).record_expense;
+    await db.query("SELECT cancel_business_history('expenses',$1,'Wrong expense')", [ex]);
+    expect((await one<{ n: number }>(`SELECT count(*)::int n FROM expenses WHERE id='${ex}'`)).n).toBe(0);
+    const sp = (await one<{ record_supplier_payment: string }>("SELECT record_supplier_payment($1,1000,'cash',null,'2026-11-02',$2)", [supplier, "a0000000-0000-4000-8000-000000000203"])).record_supplier_payment;
+    await db.query("SELECT cancel_business_history('supplier_payments',$1,'Wrong payment')", [sp]);
+    expect(Number((await one<{ supplier_due: number }>("SELECT supplier_due($1)", [supplier])).supplier_due)).toBe(dueBefore);
+    // a resold return cannot be reversed; an untouched one can
+    await expect(db.query("SELECT cancel_business_history('retailer_returns',$1,'Wrong return')", [phoneReturn])).rejects.toThrow("already resold");
+    await db.query("SELECT cancel_business_history('retailer_returns',$1,'Wrong return')", [buttonReturn]);
+    expect(Number((await one<{ retailer_due: number }>("SELECT retailer_due($1)", [retailer2])).retailer_due)).toBe(22500);
+    // deposit edit cap + invoice-cancel cash guard (deposits are recorded by the owner)
+    const dep = (await one<{ record_deposit: string }>("SELECT record_deposit($1,7500,'cash',null,current_date,$2)", [sr2, "a0000000-0000-4000-8000-000000000204"])).record_deposit;
+    await as(owner);
+    await expect(db.query("SELECT manage_business_record('deposits',$1,'update',$2::jsonb,'Fix')", [dep, JSON.stringify({ amount: 7600, note: null })])).rejects.toThrow("exceeds cash in hand");
+    const r3sale = (await one<{ id: string }>("SELECT id FROM sales WHERE retailer_id='46464646-4646-4646-8646-464646464646'")).id;
+    await expect(db.query("SELECT cancel_business_history('sales',$1,'Wrong entry')", [r3sale])).rejects.toThrow("already deposited");
+  });
+
+  it("a pre-0013 backup (9 table keys) still restores", async () => {
+    await as(owner);
+    const snap = (await one<{ business_snapshot: any }>("SELECT business_snapshot()")).business_snapshot;
+    const oldSnap = { ...snap };
+    for (const k of ["suppliers", "purchases", "supplier_payments", "expenses", "retailer_returns"]) delete oldSnap[k];
+    oldSnap.imei_units = (oldSnap.imei_units as any[]).map((u) => { const { supplier_id, purchase_id, ...rest } = u; return rest; });
+    const oldId = (await one<{ id: string }>("INSERT INTO business_exports(actor, snapshot) VALUES($1,$2::jsonb) RETURNING id", [owner, JSON.stringify(oldSnap)])).id;
+    const upload = { format: "firoza-business-data", version: 1, source: oldId, tables: { ...oldSnap, suppliers: [], purchases: [], supplier_payments: [], expenses: [], retailer_returns: [] } };
+    const safety = (await one<{ export_business_data: any }>("SELECT export_business_data()")).export_business_data;
+    await db.query("SELECT restore_business_data('RESTORE FIROZA',$1::jsonb,$2)", [JSON.stringify(upload), safety.source]);
+    expect((await one<{ n: number }>(`SELECT count(*)::int n FROM retailers WHERE id='${retailer2}'`)).n).toBe(1);
+    expect((await one<{ n: number }>("SELECT count(*)::int n FROM purchases")).n).toBe(0);
   });
 });

@@ -1,6 +1,6 @@
 import { pageHead } from "@/lib/page-head";
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -36,6 +36,10 @@ function Purchases() {
   const [paid, setPaid] = useState("");
   const [items, setItems] = useState<ItemRow[]>([{ product_id: "", cost: "", qty: "1", imeis: "" }]);
   const [busy, setBusy] = useState(false);
+  const purchaseOp = useRef<string | null>(null);
+  if (!purchaseOp.current) purchaseOp.current = crypto.randomUUID();
+  const payOp = useRef<string | null>(null);
+  if (!payOp.current) payOp.current = crypto.randomUUID();
   const [payAmt, setPayAmt] = useState("");
   const [payMethod, setPayMethod] = useState<string>("cash");
   const [paySupplier, setPaySupplier] = useState("");
@@ -102,7 +106,7 @@ function Purchases() {
   function itemTotal(row: ItemRow): number {
     const p = products.find((x) => x.id === row.product_id);
     if (!p) return 0;
-    const count = p.is_smartphone ? row.imeis.split(/[\s,]+/).filter(Boolean).length : Number(row.qty || 0);
+    const count = p.is_smartphone ? [...new Set(row.imeis.split(/[\s,]+/).map((x) => x.trim()).filter(Boolean))].length : Number(row.qty || 0);
     return count * Number(row.cost || 0);
   }
   const grandTotal = items.reduce((a, r) => a + itemTotal(r), 0);
@@ -118,11 +122,14 @@ function Purchases() {
         : { product_id: p.id, cost_price: Number(r.cost || 0), qty: Number(r.qty || 0) };
     }).filter(Boolean);
     if (!built.length) return;
+    const allImeis = built.flatMap((b) => ((b as { imeis?: string[] }).imeis ?? []));
+    if (new Set(allImeis).size !== allImeis.length) { toast.error(t("duplicateImei")); return; }
     setBusy(true);
     try {
-      const { error } = await rpc("record_purchase", { _supplier: supplierId, _items: built, _paid: Number(paid || 0), _date: date || null, _op: null });
+      const { error } = await rpc("record_purchase", { _supplier: supplierId, _items: built, _paid: Number(paid || 0), _date: date || null, _op: purchaseOp.current ?? undefined });
       if (error) { toast.error(error.message); return; }
       toast.success(t("done"));
+      purchaseOp.current = null;
       setItems([{ product_id: "", cost: "", qty: "1", imeis: "" }]);
       setPaid("");
       refresh();
@@ -136,9 +143,10 @@ function Purchases() {
     if (n <= 0 || n > dueOf(paySupplier)) { toast.error(`${t("supplierDue")}: ${money(dueOf(paySupplier))}`); return; }
     setBusy(true);
     try {
-      const { error } = await rpc("record_supplier_payment", { _supplier: paySupplier, _amount: n, _method: payMethod, _note: null, _date: todayDhaka(), _op: null });
+      const { error } = await rpc("record_supplier_payment", { _supplier: paySupplier, _amount: n, _method: payMethod, _note: null, _date: todayDhaka(), _op: payOp.current ?? undefined });
       if (error) { toast.error(error.message); return; }
       toast.success(t("done"));
+      payOp.current = null;
       setPayAmt("");
       refresh();
     } finally { setBusy(false); }

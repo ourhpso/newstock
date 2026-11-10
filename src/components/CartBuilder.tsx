@@ -65,7 +65,12 @@ export function CartBuilder({
     const p = products.find((x) => x.id === pid);
     const n = Number(qty);
     if (!p || n <= 0) return;
-    if (mode !== "issue") {
+    if (mode === "issue") {
+      // Clamp to warehouse stock here: the server rejects an over-quantity
+      // line by rolling back the WHOLE challan, scanned IMEIs included.
+      const already = cart.find((l) => l.product_id === p.id)?.qty ?? 0;
+      if (already + n > p.stock_qty) return;
+    } else {
       const heldQty = summary?.products.find((x) => x.product_id === p.id)?.hand ?? 0;
       const already = cart.find((l) => l.product_id === p.id)?.qty ?? 0;
       if (already + n > heldQty) return;

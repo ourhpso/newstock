@@ -363,6 +363,7 @@ export type Database = {
       }
       retailers: {
         Row: {
+          client_op_id: string | null
           credit_limit: number | null
           due_days: number
           address: string | null
@@ -373,6 +374,7 @@ export type Database = {
           salesman_id: string
         }
         Insert: {
+          client_op_id?: string | null
           credit_limit?: number | null
           due_days?: number
           address?: string | null

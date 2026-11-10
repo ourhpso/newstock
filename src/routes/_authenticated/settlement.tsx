@@ -1,6 +1,6 @@
 import { pageHead } from "@/lib/page-head";
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { FileSpreadsheet, Printer } from "lucide-react";
@@ -165,7 +165,7 @@ function DepositBox({ salesmanId, actorId }: { salesmanId: string; actorId: stri
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (busy || n <= 0) return;
-    if (online && n > cash) { toast.error(`${t("cashInHand")}: ${money(cash)}`); return; }
+    if (online && data && n > cash) { toast.error(`${t("cashInHand")}: ${money(cash)}`); return; }
     setBusy(true);
     try {
       const result = await runOrQueue({ kind: "deposit", payload: { _salesman: salesmanId, _amount: n, _method: method, _note: note || null, _date: date || null } }, !online, actorId);
@@ -200,6 +200,8 @@ function ExpensesSection() {
   const [note, setNote] = useState("");
   const [date, setDate] = useState(todayDhaka());
   const [busy, setBusy] = useState(false);
+  const expenseOp = useRef<string | null>(null);
+  if (!expenseOp.current) expenseOp.current = crypto.randomUUID();
   const { data: expenses = [] } = useQuery({
     queryKey: ["expenses"],
     queryFn: async () => {
@@ -213,11 +215,13 @@ function ExpensesSection() {
     if (busy) return;
     setBusy(true);
     try {
-      const { error } = await rpc("record_expense", { _category: category, _amount: Number(amount || 0), _note: note || null, _date: date || null, _op: null });
+      const { error } = await rpc("record_expense", { _category: category, _amount: Number(amount || 0), _note: note || null, _date: date || null, _op: expenseOp.current ?? undefined });
       if (error) { toast.error(error.message); return; }
       setCategory(""); setAmount(""); setNote("");
       toast.success(t("done"));
       qc.invalidateQueries({ queryKey: ["expenses"] });
+      qc.invalidateQueries({ queryKey: ["profit"] });
+      expenseOp.current = null;
     } finally { setBusy(false); }
   }
   return (

@@ -34,7 +34,7 @@ export const changeBusinessRecord = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => recordSchema.parse(input))
   .handler(async ({ data, context }) => {
-    if (data.table === "sales" || data.table === "stock_movements") {
+    if (data.table === "sales" || data.table === "stock_movements" || data.table === "purchases" || data.table === "supplier_payments" || data.table === "expenses" || data.table === "retailer_returns") {
       if (data.action !== "delete") throw new Error("Cancel history then enter a corrected transaction");
       const result = await context.supabase.rpc("cancel_business_history", { _table: data.table, _id: data.id, _reason: data.reason });
       if (result.error) throw new Error(result.error.message);

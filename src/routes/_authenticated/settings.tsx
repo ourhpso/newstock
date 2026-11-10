@@ -127,16 +127,16 @@ function Settings() {
     </DialogContent></Dialog>
   </div>;
 }
-const tableLabel: Record<string, Key> = { products: "products", retailers: "retailers", imei_units: "imeiList", sales: "sales", stock_movements: "history", retailer_payments: "collectPayment", deposits: "deposited", dealer_blocks: "blocked", dealer_risk_assessments: "paymentRisk" };
+const tableLabel: Record<string, Key> = { products: "products", retailers: "retailers", imei_units: "imeiList", sales: "sales", stock_movements: "history", retailer_payments: "collectPayment", deposits: "deposited", purchases: "purchases", supplier_payments: "supplierPayments", expenses: "expenses", retailer_returns: "salesReturn", dealer_blocks: "blocked", dealer_risk_assessments: "paymentRisk" };
 function AccountCorrections() {
   const { t } = useT();
-  const [table, setTable] = useState<"sales" | "stock_movements" | "retailer_payments" | "deposits" | "imei_units">("retailer_payments");
+  const [table, setTable] = useState<"sales" | "stock_movements" | "retailer_payments" | "deposits" | "imei_units" | "purchases" | "supplier_payments" | "expenses" | "retailer_returns">("retailer_payments");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
   const { data = [], isLoading, error } = useQuery({ queryKey: ["settings-records", table, page], queryFn: async () => { const { data, error } = await supabase.from(table).select("*").order("created_at", { ascending: false }).range(page * 50, page * 50 + 49); if (error) throw error; return data; } });
   const { data: audit = [] } = useQuery({ queryKey: ["settings-audit"], queryFn: async () => { const { data, error } = await supabase.from("business_audit").select("id,action,entity,reason,created_at").order("created_at", { ascending: false }).limit(20); if (error) throw error; return data; } });
   return <section className="space-y-4 border-b pb-6"><h2 className="font-display text-lg font-bold">{t("transactionControls")}</h2><p className="text-sm text-muted-foreground">{t("transactionSafety")}</p>
-    <div className="grid gap-2 sm:grid-cols-2"><Select value={table} onValueChange={(v) => { if (v === "sales" || v === "stock_movements" || v === "retailer_payments" || v === "deposits" || v === "imei_units") { setTable(v); setPage(0); } }}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{["sales", "stock_movements", "retailer_payments", "deposits", "imei_units"].map((v) => <SelectItem key={v} value={v}>{t(tableLabel[v] ?? "history")}</SelectItem>)}</SelectContent></Select><Input aria-label={t("name")} placeholder={t("name")} value={search} onChange={(e) => setSearch(e.target.value)} /></div>
+    <div className="grid gap-2 sm:grid-cols-2"><Select value={table} onValueChange={(v) => { if (v === "sales" || v === "stock_movements" || v === "retailer_payments" || v === "deposits" || v === "imei_units" || v === "purchases" || v === "supplier_payments" || v === "expenses" || v === "retailer_returns") { setTable(v); setPage(0); } }}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{["sales", "stock_movements", "retailer_payments", "deposits", "imei_units", "purchases", "supplier_payments", "expenses", "retailer_returns"].map((v) => <SelectItem key={v} value={v}>{t(tableLabel[v] ?? "history")}</SelectItem>)}</SelectContent></Select><Input aria-label={t("name")} placeholder={t("name")} value={search} onChange={(e) => setSearch(e.target.value)} /></div>
     {isLoading && <p>{t("loading")}</p>}{error && <p className="text-destructive">{t("loadFailed")}</p>}
     <div className="divide-y">{data.filter((row) => JSON.stringify(row).toLowerCase().includes(search.toLowerCase())).map((row) => {
       const r = row as { id: string; created_at: string; amount?: number; note?: string | null; total?: number; imei?: string; kind?: string; qty?: number };

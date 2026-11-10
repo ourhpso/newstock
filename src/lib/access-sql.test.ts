@@ -7,7 +7,7 @@ describe("user role and action enforcement", () => {
  beforeAll(async()=>{
   db=new PGlite();
   await db.exec(`CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role; CREATE SCHEMA auth; CREATE TABLE auth.users(id uuid PRIMARY KEY,raw_user_meta_data jsonb DEFAULT '{}'); CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql AS $$ SELECT nullif(current_setting('app.user',true),'')::uuid $$;`);
-  for(const file of ["0000_migration.sql","0003_dealer_risk_and_confirmed_blocks.sql","0004_settings_data_management.sql","0005_validated_history_cancellation.sql","0006_user_roles_access_control.sql","0007_access_read_and_profile_guards.sql","0008_access_role_transition_safety.sql"]) { if(file==="0003_dealer_risk_and_confirmed_blocks.sql") await db.exec("ALTER TABLE products ADD COLUMN low_stock_threshold integer NOT NULL DEFAULT 0"); await db.exec(readFileSync(`drizzle/migrations/${file}`,"utf8")); }
+  for(const file of ["0000_migration.sql","0003_dealer_risk_and_confirmed_blocks.sql","0004_settings_data_management.sql","0005_validated_history_cancellation.sql","0006_user_roles_access_control.sql","0007_access_read_and_profile_guards.sql","0008_access_role_transition_safety.sql","0015_policy_and_helper_grants.sql"]) { if(file==="0003_dealer_risk_and_confirmed_blocks.sql") await db.exec("ALTER TABLE products ADD COLUMN low_stock_threshold integer NOT NULL DEFAULT 0"); await db.exec(readFileSync(`drizzle/migrations/${file}`,"utf8")); }
   await db.exec(`INSERT INTO auth.users(id) VALUES('${owner}'),('${sr}'); SELECT set_config('app.user','${owner}',false); INSERT INTO products(id,name,is_smartphone,stock_qty,price) VALUES('${product}','Stock',false,10,100); INSERT INTO retailers(id,name,salesman_id) VALUES('${retailer}','Shop','${sr}');`);
   await db.query("SELECT issue_stock($1,$2::jsonb)",[sr,JSON.stringify([{product_id:product,qty:3}])]);
  },60000);
@@ -47,5 +47,16 @@ describe("user role and action enforcement", () => {
   expect((await db.query<{allowed:boolean}>("SELECT user_can($1,'sales') allowed",[sr])).rows[0]?.allowed).toBe(true);
   await set();
   expect((await db.query<{n:number}>("SELECT count(*)::int n FROM business_audit WHERE action='access_change'")).rows[0]?.n).toBe(6);
+ });
+ it("keeps product and IMEI read access separate from admin write policies",async()=>{
+  const rows=(await db.query<{tablename:string;cmd:string}>(`SELECT tablename,cmd FROM pg_policies WHERE schemaname='public' AND policyname LIKE '%admin %' AND tablename IN ('products','imei_units') ORDER BY tablename,cmd`)).rows;
+  expect(rows).toEqual([
+   {tablename:"imei_units",cmd:"DELETE"},
+   {tablename:"imei_units",cmd:"INSERT"},
+   {tablename:"imei_units",cmd:"UPDATE"},
+   {tablename:"products",cmd:"DELETE"},
+   {tablename:"products",cmd:"INSERT"},
+   {tablename:"products",cmd:"UPDATE"},
+  ]);
  });
 });

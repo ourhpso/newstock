@@ -57,10 +57,10 @@ export type ReceiptItem = { name: string; qty: number; unit_price: number; imeis
 
 /** Business-standard sales invoice / receipt for a retailer sale. */
 export function SaleReceiptDoc({
-  b, appName, saleId, docNo, date, retailerName, retailerMeta, items, total, paid,
+  b, appName, saleId, docNo, date, retailerName, retailerMeta, items, total, paid, discount,
 }: {
   b: Business; appName: string; saleId: string; docNo?: string | undefined; date: string;
-  retailerName: string; retailerMeta?: string | undefined; items: ReceiptItem[]; total: number; paid: number;
+  retailerName: string; retailerMeta?: string | undefined; items: ReceiptItem[]; total: number; paid: number; discount?: number | undefined;
 }) {
   const { t } = useT();
   return (
@@ -92,6 +92,8 @@ export function SaleReceiptDoc({
           ))}
         </tbody>
         <tfoot>
+          {(discount ?? 0) > 0 && <tr><td colSpan={4} style={tdR}>{t("subtotal")}</td><td style={tdR}>{money(total + (discount ?? 0))}</td></tr>}
+          {(discount ?? 0) > 0 && <tr><td colSpan={4} style={tdR}>{t("discount")}</td><td style={tdR}>-{money(discount ?? 0)}</td></tr>}
           <tr><td colSpan={4} style={{ ...tdR, fontWeight: 700 }}>{t("total")}</td><td style={{ ...tdR, fontWeight: 700 }}>{money(total)}</td></tr>
           <tr><td colSpan={4} style={tdR}>{t("paid")}</td><td style={tdR}>{money(paid)}</td></tr>
           <tr><td colSpan={4} style={{ ...tdR, fontWeight: 700 }}>{t("due")}</td><td style={{ ...tdR, fontWeight: 700 }}>{money(total - paid)}</td></tr>

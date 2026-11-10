@@ -67,60 +67,29 @@ export function useProducts() {
   });
 }
 
-/** Per-product holding and account summary for a salesman. */
+/** Per-product holding and account summary for a salesman (server-side, uncapped). */
+export type SalesmanSummaryData = {
+  products: { product_id: string; name: string; isSmart: boolean; issued: number; sold: number; returned: number; damaged: number; hand: number; value: number }[];
+  handImeis: { imei: string; product_id: string; status: string }[];
+  salesTotal: number;
+  cashInHand: number;
+  retailerDue: number;
+  returnsTotal: number;
+  deposited: number;
+  deposits: { id: string; salesman_id: string; amount: number; method: string | null; note: string | null; receipt_no: string | null; txn_date: string | null; client_op_id: string | null; created_at: string }[];
+  owesDealer: number;
+};
+
 export function useSalesmanSummary(salesmanId: string | undefined) {
   return useQuery({
     enabled: !!salesmanId,
     queryKey: ["summary", salesmanId],
-    queryFn: async () => {
-      const id = salesmanId;
-      if (!id) throw new Error("Salesman required");
-      const [moves, sales, pays, deps, imeis, rets] = await Promise.all([
-        supabase.from("stock_movements").select("product_id,kind,qty,unit_price, products(name,is_smartphone)").eq("salesman_id", id),
-        supabase.from("sales").select("total,paid").eq("salesman_id", id),
-        supabase.from("retailer_payments").select("amount").eq("salesman_id", id),
-        supabase.from("deposits").select("*").eq("salesman_id", id).order("created_at", { ascending: false }),
-        supabase.from("imei_units").select("imei, product_id, status").eq("salesman_id", id).eq("status", "with_salesman"),
-        supabase.from("retailer_returns").select("total").eq("salesman_id", id),
-      ]);
-      for (const result of [moves, sales, pays, deps, imeis, rets]) {
-        if (result.error) throw result.error;
-      }
-      const byProduct: Record<string, { name: string; isSmart: boolean; issued: number; sold: number; returned: number; damaged: number; hand: number; value: number }> = {};
-      for (const m of moves.data ?? []) {
-        const p = (byProduct[m.product_id] ??= {
-          name: (m.products as { name: string } | null)?.name ?? "",
-          isSmart: !!(m.products as { is_smartphone: boolean } | null)?.is_smartphone,
-          issued: 0, sold: 0, returned: 0, damaged: 0, hand: 0, value: 0,
-        });
-        if (m.kind === "issue" || m.kind === "sale_return") { if (m.kind === "issue") p.issued += m.qty; p.hand += m.qty; p.value += m.qty * Number(m.unit_price); }
-        else {
-          p.hand -= m.qty;
-          p.value -= m.qty * Number(m.unit_price);
-          if (m.kind === "sale") p.sold += m.qty;
-          if (m.kind === "return") p.returned += m.qty;
-          if (m.kind === "damage") p.damaged += m.qty;
-        }
-      }
-      const salesTotal = (sales.data ?? []).reduce((a, s) => a + Number(s.total), 0);
-      const salesPaid = (sales.data ?? []).reduce((a, s) => a + Number(s.paid), 0);
-      const collected = (pays.data ?? []).reduce((a, s) => a + Number(s.amount), 0);
-      const deposited = (deps.data ?? []).reduce((a, s) => a + Number(s.amount), 0);
-      const returnsTotal = (rets.data ?? []).reduce((a, s) => a + Number(s.total), 0);
-      const issuedValue = (moves.data ?? []).filter((m) => m.kind === "issue").reduce((a, m) => a + m.qty * Number(m.unit_price), 0);
-      const returnedValue = (moves.data ?? []).filter((m) => m.kind === "return" || m.kind === "damage").reduce((a, m) => a + m.qty * Number(m.unit_price), 0);
-      return {
-        products: Object.entries(byProduct).map(([product_id, v]) => ({ product_id, ...v })),
-        handImeis: imeis.data ?? [],
-        salesTotal,
-        cashInHand: salesPaid + collected - deposited,
-        retailerDue: salesTotal - salesPaid - collected - returnsTotal,
-        returnsTotal,
-        deposited,
-        deposits: deps.data ?? [],
-        /** what the salesman still owes the dealer house (goods taken minus returned minus money deposited) */
-        owesDealer: issuedValue - returnedValue - deposited,
-      };
+    queryFn: async (): Promise<SalesmanSummaryData> => {
+      if (!salesmanId) throw new Error("Salesman required");
+      const { data, error } = await rpc<SalesmanSummaryData>("salesman_summary", { _salesman: salesmanId });
+      if (error) throw new Error(error.message);
+      if (!data) throw new Error("Summary unavailable");
+      return data;
     },
   });
 }

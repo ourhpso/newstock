@@ -19,7 +19,7 @@ import { PageTitle } from "@/components/Stat";
 import { RecordActions } from "@/components/RecordActions";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-type SaleRow = { id: string; created_at: string; txn_date: string; invoice_no: string | null; total: number; paid: number; retailer_id: string };
+type SaleRow = { id: string; created_at: string; txn_date: string; invoice_no: string | null; total: number; paid: number; discount: number; retailer_id: string };
 type PayRow = { id: string; created_at: string; txn_date: string; receipt_no: string | null; method: string; amount: number; note: string | null; retailer_id: string };
 type RetRow = { id: string; created_at: string; txn_date: string; doc_no: string | null; total: number; retailer_id: string };
 type RetailerRow = { id: string; name: string; phone: string | null; address: string | null };
@@ -45,15 +45,25 @@ function Retailers() {
   const { data: ledger } = useQuery({
     queryKey: ["ledger"],
     queryFn: async () => {
-      const [s, p, r] = await Promise.all([
-        supabase.from("sales").select("id,created_at,txn_date,invoice_no,total,paid,retailer_id").order("created_at", { ascending: false }).limit(1000),
-        supabase.from("retailer_payments").select("id,created_at,txn_date,receipt_no,method,amount,note,retailer_id").order("created_at", { ascending: false }).limit(1000),
-        supabase.from("retailer_returns").select("id,created_at,txn_date,doc_no,total,retailer_id").order("created_at", { ascending: false }).limit(1000),
+      // Page through everything: a single fetch is silently truncated by the
+      // server row cap, which made printed ledgers miss entries.
+      async function fetchAll<T>(table: "sales" | "retailer_payments" | "retailer_returns", columns: string): Promise<T[]> {
+        const rows: T[] = [];
+        for (let from = 0; from < 50000; from += 1000) {
+          const res = await (supabase.from(table).select(columns).order("created_at", { ascending: false }).range(from, from + 999) as unknown as Promise<{ data: unknown[] | null; error: { message: string } | null }>);
+          if (res.error) throw new Error(res.error.message);
+          const batch = (res.data ?? []) as T[];
+          rows.push(...batch);
+          if (batch.length < 1000) break;
+        }
+        return rows;
+      }
+      const [sales, pays, rets] = await Promise.all([
+        fetchAll<SaleRow>("sales", "id,created_at,txn_date,invoice_no,total,paid,discount,retailer_id"),
+        fetchAll<PayRow>("retailer_payments", "id,created_at,txn_date,receipt_no,method,amount,note,retailer_id"),
+        fetchAll<RetRow>("retailer_returns", "id,created_at,txn_date,doc_no,total,retailer_id"),
       ]);
-      if (s.error) throw s.error;
-      if (p.error) throw p.error;
-      if (r.error) throw r.error;
-      return { sales: (s.data ?? []) as unknown as SaleRow[], pays: (p.data ?? []) as unknown as PayRow[], rets: (r.data ?? []) as RetRow[] };
+      return { sales, pays, rets };
     },
   });
   // Balances come from the database ledger function, never from summing rows in the browser.
@@ -77,9 +87,12 @@ function Retailers() {
   const paidOf = (r: RetailerRow) => (balanceOf(r)?.paid_at_sale ?? 0) + (balanceOf(r)?.collected ?? 0) + (balanceOf(r)?.returns_total ?? 0);
   const dueOf = (r: RetailerRow) => balanceOf(r)?.due ?? 0;
 
+  const [adding, setAdding] = useState(false);
   async function add(e: React.FormEvent) {
     e.preventDefault();
-    if (!me) return;
+    if (!me || adding) return;
+    setAdding(true);
+    try {
     if (me.isAdmin && !salesmanId) { toast.error(t("selectSalesman")); return; }
     const result = await runOrQueue(
       { kind: "add_retailer", payload: { name: f.name, phone: f.phone, address: f.address, salesman_id: me.isAdmin ? salesmanId : me.id, credit_limit: f.credit_limit === "" ? null : Number(f.credit_limit), due_days: Number(f.due_days || 30) } },
@@ -90,6 +103,7 @@ function Retailers() {
     if (result.s === "queued") toast.success(t("savedOffline"));
     setF({ name: "", phone: "", address: "", credit_limit: "", due_days: "30" });
     qc.invalidateQueries({ queryKey: ["retailers"] });
+    } finally { setAdding(false); }
   }
 
   function exportAll() {
@@ -102,16 +116,20 @@ function Retailers() {
     const rows: (string | number)[][] = [[t("date"), t("items"), t("sales"), t("paid")]];
     for (const s of salesOf(r)) rows.push([new Date(s.created_at).toLocaleString(), `${t("sales")} (${t("paid")} ${money(s.paid)})`, Number(s.total), Number(s.paid)]);
     for (const p of paysOf(r)) rows.push([new Date(p.created_at).toLocaleString(), `${t("collectPayment")}${p.note ? ` — ${p.note}` : ""}`, "", Number(p.amount)]);
-    for (const x of retsOf(r)) rows.push([new Date(x.created_at).toLocaleString(), `${t("salesReturn")} ${x.doc_no ?? ""}`, "", -Number(x.total)]);
+    for (const x of retsOf(r)) rows.push([new Date(x.created_at).toLocaleString(), `${t("salesReturn")} ${x.doc_no ?? ""}`, "", Number(x.total)]);
     rows.push([], [t("total"), "", totalOf(r), paidOf(r)], [t("due"), "", "", dueOf(r)]);
     exportCsv(`ledger-${r.name}.csv`, rows, r.name);
   }
 
   function printLedger(r: RetailerRow) {
     const entries = [
-      ...salesOf(r).map((s) => ({ date: s.created_at, label: `${t("sales")} ${s.invoice_no ?? ""} (${t("paid")} ${money(s.paid)})`, debit: Number(s.total), credit: 0 })),
-      ...paysOf(r).map((p) => ({ date: p.created_at, label: `${t("collectPayment")} ${p.receipt_no ?? ""}${p.note ? ` — ${p.note}` : ""}`, debit: 0, credit: Number(p.amount) })),
-      ...retsOf(r).map((x) => ({ date: x.created_at, label: `${t("salesReturn")} ${x.doc_no ?? ""}`, debit: 0, credit: Number(x.total) })),
+      ...salesOf(r).flatMap((s) => {
+        const list = [{ date: s.txn_date ?? s.created_at, label: `${t("sales")} ${s.invoice_no ?? ""}`, debit: Number(s.total), credit: 0 }];
+        if (Number(s.paid) > 0) list.push({ date: s.txn_date ?? s.created_at, label: `${t("sales")} — ${t("paid")}`, debit: 0, credit: Number(s.paid) });
+        return list;
+      }),
+      ...paysOf(r).map((p) => ({ date: p.txn_date ?? p.created_at, label: `${t("collectPayment")} ${p.receipt_no ?? ""}${p.note ? ` — ${p.note}` : ""}`, debit: 0, credit: Number(p.amount) })),
+      ...retsOf(r).map((x) => ({ date: x.txn_date ?? x.created_at, label: `${t("salesReturn")} ${x.doc_no ?? ""}`, debit: 0, credit: Number(x.total) })),
     ].sort((a, b) => a.date.localeCompare(b.date));
     setPrintDoc(
       <LedgerDoc b={business} appName={appName} retailerName={r.name} retailerMeta={[r.phone, r.address].filter(Boolean).join(" · ") || undefined}
@@ -123,7 +141,7 @@ function Retailers() {
     const items = await fetchSaleItems(s.id);
     setPrintDoc(
       <SaleReceiptDoc b={business} appName={appName} saleId={s.id} docNo={s.invoice_no ?? undefined} date={s.txn_date ?? s.created_at} retailerName={r.name}
-        retailerMeta={r.phone ?? undefined} items={items} total={Number(s.total)} paid={Number(s.paid)} />,
+        retailerMeta={r.phone ?? undefined} items={items} total={Number(s.total)} paid={Number(s.paid)} discount={Number(s.discount ?? 0)} />,
     );
   }
 
@@ -161,9 +179,9 @@ function Retailers() {
           const paid = paidOf(r);
           const rets = retsOf(r);
           const entries = [
-            ...sales.map((s) => ({ kind: "sale" as const, at: s.created_at, sale: s, pay: null as PayRow | null, ret: null as RetRow | null })),
-            ...pays.map((p) => ({ kind: "pay" as const, at: p.created_at, sale: null as SaleRow | null, pay: p, ret: null as RetRow | null })),
-            ...rets.map((x) => ({ kind: "ret" as const, at: x.created_at, sale: null as SaleRow | null, pay: null as PayRow | null, ret: x })),
+            ...sales.map((s) => ({ kind: "sale" as const, at: s.txn_date ?? s.created_at, sale: s, pay: null as PayRow | null, ret: null as RetRow | null })),
+            ...pays.map((p) => ({ kind: "pay" as const, at: p.txn_date ?? p.created_at, sale: null as SaleRow | null, pay: p, ret: null as RetRow | null })),
+            ...rets.map((x) => ({ kind: "ret" as const, at: x.txn_date ?? x.created_at, sale: null as SaleRow | null, pay: null as PayRow | null, ret: x })),
           ].sort((a, b) => b.at.localeCompare(a.at));
           return (
             <div key={r.id} className="rounded-xl border bg-card p-4">
@@ -179,7 +197,7 @@ function Retailers() {
               </button>
               {open === r.id && (
                 <div className="mt-3 space-y-3 border-t pt-3">
-                  {!me?.isAdmin && me?.permissions.collect_payment && <PaymentForm retailerId={r.id} max={dueOf(r)} actorId={me.id} />}
+                  {me && (me.isAdmin || me.permissions.collect_payment) && <PaymentForm retailerId={r.id} max={dueOf(r)} actorId={me.id} />}
                   {(me?.isAdmin || me?.permissions.returns) && me && <RetailerReturnForm retailerId={r.id} actorId={me.id} />}
                   <div className="flex flex-wrap gap-2">
                     {(me?.isAdmin || me?.permissions.retailer_manage) && <RecordActions table="retailers" id={r.id} fields={[{ key: "name", label: "name", value: r.name }, { key: "phone", label: "phone", value: r.phone }, { key: "address", label: "address", value: r.address }]} />}

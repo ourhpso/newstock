@@ -151,8 +151,12 @@ async function runEntry(entry: QueueEntry) {
       return await rpc("record_deposit", { ...op.payload, _op: entry.id });
     case "retailer_payment":
       return await rpc("record_retailer_payment", { ...op.payload, _op: entry.id });
-    case "add_retailer":
-      return await supabase.from("retailers").insert(op.payload);
+    case "add_retailer": {
+      const ins = await supabase.from("retailers").insert({ ...op.payload, client_op_id: entry.id });
+      // A replay after a lost response hits the unique client_op_id: success, not an error.
+      if (ins.error && (ins.error as { code?: string }).code === "23505") return { data: null, error: null };
+      return ins;
+    }
   }
 }
 

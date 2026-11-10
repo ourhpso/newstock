@@ -41,7 +41,7 @@ function Sales() {
   const [date, setDate] = useState(todayDhaka());
   const [busy, setBusy] = useState(false);
   const [cart, setCart] = useState<CartLine[]>([]);
-  const [lastSale, setLastSale] = useState<{ id: string; docNo: string | undefined; retailerId: string; total: number; paid: number; date: string } | null>(null);
+  const [lastSale, setLastSale] = useState<{ id: string; docNo: string | undefined; retailerId: string; total: number; paid: number; discount: number; date: string } | null>(null);
   const [printDoc, setPrintDoc] = useState<ReactNode | null>(null);
   const cartTotal = cart.reduce((a, l) => a + l.qty * l.unit_price, 0);
   const disc = Number(discount || 0);
@@ -75,13 +75,14 @@ function Sales() {
       toast.success(t("done"));
       // The receipt prints the database's own figures and invoice number, never browser math.
       const saleId = result.data as string;
-      const { data: row } = await supabase.from("sales").select("invoice_no,total,paid,txn_date").eq("id", saleId).maybeSingle();
+      const { data: row } = await supabase.from("sales").select("invoice_no,total,paid,discount,txn_date").eq("id", saleId).maybeSingle();
       setLastSale({
         id: saleId,
         docNo: row?.invoice_no ?? undefined,
         retailerId: rid,
         total: row ? Number(row.total) : total,
         paid: row ? Number(row.paid) : paidN,
+        discount: row ? Number(row.discount ?? 0) : disc,
         date: row?.txn_date ?? date,
       });
       setCart([]); setPaid(""); setDiscount("");
@@ -98,7 +99,7 @@ function Sales() {
     setPrintDoc(
       <SaleReceiptDoc b={business} appName={t("appName")} saleId={lastSale.id} docNo={lastSale.docNo} date={lastSale.date}
         retailerName={r?.name ?? ""} retailerMeta={r?.phone ?? undefined}
-        items={items} total={lastSale.total} paid={lastSale.paid} />,
+        items={items} total={lastSale.total} paid={lastSale.paid} discount={lastSale.discount} />,
     );
   }
 

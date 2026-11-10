@@ -59,21 +59,35 @@ function Products() {
     refresh();
   }
 
+  const [adding, setAdding] = useState(false);
   async function add(e: React.FormEvent) {
     e.preventDefault();
-    // Products always start at zero stock; opening stock enters through
-    // receive_stock so the movement ledger can reconcile from day one.
-    const { data, error } = await supabase.from("products").insert({
-      name: f.name, model: f.model || null, price: Number(f.price || 0), is_smartphone: f.is_smartphone, stock_qty: 0,
-    }).select("id").single();
-    if (error) { toast.error(error.message); return; }
-    const opening = f.is_smartphone ? 0 : Number(f.stock_qty || 0);
-    if (opening > 0 && data) {
-      const { error: stockError } = await rpc("receive_stock", { _product: data.id, _qty: opening, _kind: "opening", _reason: "Opening stock at product creation", _date: null, _op: null });
-      if (stockError) { toast.error(stockError.message); return; }
+    if (adding) return;
+    setAdding(true);
+    try {
+      // Products always start at zero stock; opening stock enters through
+      // receive_stock so the movement ledger can reconcile from day one.
+      const { data, error } = await supabase.from("products").insert({
+        name: f.name, model: f.model || null, price: Number(f.price || 0), is_smartphone: f.is_smartphone, stock_qty: 0,
+      }).select("id").single();
+      if (error) { toast.error(error.message); return; }
+      const opening = f.is_smartphone ? 0 : Number(f.stock_qty || 0);
+      if (opening > 0 && data) {
+        const { error: stockError } = await rpc("receive_stock", { _product: data.id, _qty: opening, _kind: "opening", _reason: "Opening stock at product creation", _date: null, _op: null });
+        if (stockError) {
+          // The product now exists — do NOT invite a resubmit (it would create
+          // a duplicate). Stock can be added from the product card's ± box.
+          toast.error(`${stockError.message} — ${t("productCreatedNoStock")}`);
+          setF({ name: "", model: "", price: "", is_smartphone: true, stock_qty: "" });
+          refresh();
+          return;
+        }
+      }
+      setF({ name: "", model: "", price: "", is_smartphone: true, stock_qty: "" });
+      refresh();
+    } finally {
+      setAdding(false);
     }
-    setF({ name: "", model: "", price: "", is_smartphone: true, stock_qty: "" });
-    refresh();
   }
 
   async function saveImeis() {
@@ -118,7 +132,7 @@ function Products() {
         <Input required type="number" placeholder={t("price")} value={f.price} onChange={(e) => setF({ ...f, price: e.target.value })} />
         <label className="flex items-center gap-2 text-sm"><Switch checked={f.is_smartphone} onCheckedChange={(v) => setF({ ...f, is_smartphone: v })} />{f.is_smartphone ? t("smartphone") : t("buttonPhone")}</label>
         {!f.is_smartphone ? <Input type="number" placeholder={t("stock")} value={f.stock_qty} onChange={(e) => setF({ ...f, stock_qty: e.target.value })} /> : <div />}
-        <Button>{t("add")}</Button>
+        <Button disabled={adding}>{t("add")}</Button>
       </form>
       <div className="grid gap-3 md:grid-cols-2">
         {products.map((p) => (
