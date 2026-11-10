@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PageTitle } from "@/components/Stat";
+import { SearchHistoryBar } from "@/components/SearchHistoryBar";
 
 export const Route = createFileRoute("/_authenticated/settlement")({
   head: () => pageHead("ফেরত ও জমা", "FIROZA ENTERPRISE returns, damage, deposits and settlement reports."),
@@ -33,6 +34,8 @@ function Settlement() {
   const { data: me } = useMe();
   const { data: salesmen = [] } = useSalesmen();
   const [picked, setPicked] = useState("");
+  const [salesmanSearch, setSalesmanSearch] = useState("");
+  const visibleSalesmen = salesmen.filter((s) => s.full_name.toLowerCase().includes(salesmanSearch.toLowerCase()));
   if (!me) return null;
   const sid = me.isAdmin ? picked : me.id;
   const name = me.isAdmin ? (salesmen.find((s) => s.id === sid)?.full_name ?? "") : (me.profile?.full_name || me.email || "");
@@ -40,10 +43,11 @@ function Settlement() {
     <div className="space-y-6">
       <PageTitle>{t("settlement")}</PageTitle>
       {me.isAdmin && (
+        <div className="space-y-2"><SearchHistoryBar value={salesmanSearch} onChange={setSalesmanSearch} historyKey="settlement-salesman" placeholder="Search salesman..." />
         <Select value={picked} onValueChange={setPicked}>
           <SelectTrigger className="w-full sm:w-72"><SelectValue placeholder={t("selectSalesman")} /></SelectTrigger>
-          <SelectContent>{salesmen.map((s) => <SelectItem key={s.id} value={s.id}>{s.full_name}</SelectItem>)}</SelectContent>
-        </Select>
+          <SelectContent>{visibleSalesmen.map((s) => <SelectItem key={s.id} value={s.id}>{s.full_name}</SelectItem>)}</SelectContent>
+        </Select></div>
       )}
       {sid && (
         <>

@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PageTitle } from "@/components/Stat";
+import { SearchHistoryBar } from "@/components/SearchHistoryBar";
 
 export const Route = createFileRoute("/_authenticated/stock-issue")({
   beforeLoad: requireAdmin,
@@ -32,6 +33,8 @@ function StockIssue() {
   const { data: salesmen = [] } = useSalesmen();
   const [business] = useBusiness();
   const [sid, setSid] = useState("");
+  const [salesmanSearch, setSalesmanSearch] = useState("");
+  const visibleSalesmen = salesmen.filter((s) => s.active && `${s.full_name}`.toLowerCase().includes(salesmanSearch.toLowerCase()));
   const [cart, setCart] = useState<CartLine[]>([]);
   const [date, setDate] = useState(todayDhaka());
   const [busy, setBusy] = useState(false);
@@ -82,10 +85,10 @@ function StockIssue() {
         </div>
       )}
       <div className="flex flex-wrap items-end gap-3">
-        <Select value={sid} onValueChange={(v) => { setSid(v); setCart([]); }}>
+        <div className="w-full space-y-2 sm:w-72"><SearchHistoryBar value={salesmanSearch} onChange={setSalesmanSearch} historyKey="stock-issue-salesman" placeholder="Search salesman..." /><Select value={sid} onValueChange={(v) => { setSid(v); setCart([]); }}>
           <SelectTrigger className="w-full sm:w-72"><SelectValue placeholder={t("selectSalesman")} /></SelectTrigger>
-          <SelectContent>{salesmen.filter((s) => s.active).map((s) => <SelectItem key={s.id} value={s.id}>{s.full_name}</SelectItem>)}</SelectContent>
-        </Select>
+          <SelectContent>{visibleSalesmen.map((s) => <SelectItem key={s.id} value={s.id}>{s.full_name}</SelectItem>)}</SelectContent>
+        </Select></div>
         <div className="space-y-1"><Label>{t("date")}</Label><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
       </div>
       {sid && <CartBuilder mode="issue" salesmanId={sid} cart={cart} setCart={setCart} />}

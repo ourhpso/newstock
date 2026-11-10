@@ -19,6 +19,7 @@ import { PageTitle } from "@/components/Stat";
 import { BrandModelProductPicker } from "@/components/BrandModelPicker";
 import { RecordActions } from "@/components/RecordActions";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchHistoryBar } from "@/components/SearchHistoryBar";
 
 type SaleRow = { id: string; created_at: string; txn_date: string; invoice_no: string | null; total: number; paid: number; discount: number; retailer_id: string };
 type PayRow = { id: string; created_at: string; txn_date: string; receipt_no: string | null; method: string; amount: number; note: string | null; retailer_id: string };
@@ -37,6 +38,8 @@ function Retailers() {
   const { data: me } = useMe();
   const { data: salesmen = [] } = useSalesmen();
   const [salesmanId, setSalesmanId] = useState("");
+  const [search, setSearch] = useState("");
+  const [balanceFilter, setBalanceFilter] = useState("all");
   const online = useOnline();
   const { data: retailers = [] } = useRetailers();
   const [business] = useBusiness();
@@ -81,6 +84,7 @@ function Retailers() {
     return { sales, pays, rets };
   }, [ledger]);
   const balanceOf = (r: RetailerRow) => ledgers.find((l) => l.id === r.id);
+  const visibleRetailers = retailers.filter(r => { const q=search.trim().toLowerCase(); const b=ledgers.find(l=>l.id===r.id); const salesman=salesmen.find(s=>s.id===b?.salesman_id)?.full_name??""; const due=Number(b?.due??0); return (!q || [r.name,r.phone,r.address,salesman].some(v=>String(v??"").toLowerCase().includes(q))) && (balanceFilter==="all" || (balanceFilter==="due" ? due>0 : due<=0)); });
   const salesOf = (r: RetailerRow) => grouped.sales.get(r.id) ?? [];
   const paysOf = (r: RetailerRow) => grouped.pays.get(r.id) ?? [];
   const retsOf = (r: RetailerRow) => grouped.rets.get(r.id) ?? [];
@@ -231,7 +235,7 @@ function Retailers() {
             </div>
           );
         })}
-        {retailers.length === 0 && <p className="text-muted-foreground">{t("noData")}</p>}
+        {visibleRetailers.length === 0 && <p className="text-muted-foreground">{t("noData")}</p>}
       </div>
       {printDoc && <PrintSheet onDone={() => setPrintDoc(null)}>{printDoc}</PrintSheet>}
     </div>

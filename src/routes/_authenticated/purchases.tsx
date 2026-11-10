@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PageTitle } from "@/components/Stat";
 import { BrandModelProductPicker } from "@/components/BrandModelPicker";
+import { SearchHistoryBar } from "@/components/SearchHistoryBar";
 
 export const Route = createFileRoute("/_authenticated/purchases")({
   beforeLoad: requireAdmin,
@@ -40,6 +41,11 @@ function Purchases() {
   const qc = useQueryClient();
   const { data: products = [] } = useProducts();
   const [supplierForm, setSupplierForm] = useState({ name: "", phone: "", address: "" });
+  const [historySearch, setHistorySearch] = useState("");
+  const [historySupplier, setHistorySupplier] = useState("all");
+  const [historyFrom, setHistoryFrom] = useState("");
+  const [historyTo, setHistoryTo] = useState("");
+  const [supplierSearch, setSupplierSearch] = useState("");
   const [supplierId, setSupplierId] = useState("");
   const [date, setDate] = useState(todayDhaka());
   const [paid, setPaid] = useState("");
@@ -95,6 +101,8 @@ function Purchases() {
     },
   });
   const dueOf = (id: string) => supplierDues?.[id] ?? 0;
+  const visibleSuppliers = suppliers.filter(s => !supplierSearch.trim() || [s.name,s.phone,s.address].some(v => String(v??"").toLowerCase().includes(supplierSearch.trim().toLowerCase())));
+  const visiblePurchases = purchases.filter(p => { const supplier=suppliers.find(s=>s.id===p.supplier_id); const q=historySearch.trim().toLowerCase(); return (!q || [p.doc_no,supplier?.name].some(v=>String(v??"").toLowerCase().includes(q))) && (historySupplier==="all" || p.supplier_id===historySupplier) && (!historyFrom || p.txn_date>=historyFrom) && (!historyTo || p.txn_date<=historyTo); });
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ["suppliers"] });
@@ -188,18 +196,20 @@ function Purchases() {
       <PageTitle>{t("purchases")}</PageTitle>
 
       <form onSubmit={addSupplier} className="grid gap-3 rounded-xl border bg-card p-4 md:grid-cols-4">
-        <Input required placeholder={`${t("supplier")} · ${t("name")}`} value={supplierForm.name} onChange={(e) => setSupplierForm({ ...supplierForm, name: e.target.value })} />
+        <Input required list="recent-suppliers" placeholder={`${t("supplier")} · ${t("name")}`} value={supplierForm.name} onChange={(e) => setSupplierForm({ ...supplierForm, name: e.target.value })} />
         <Input placeholder={t("phone")} value={supplierForm.phone} onChange={(e) => setSupplierForm({ ...supplierForm, phone: e.target.value })} />
         <Input placeholder={t("address")} value={supplierForm.address} onChange={(e) => setSupplierForm({ ...supplierForm, address: e.target.value })} />
         <Button>{t("add")}</Button>
+        <datalist id="recent-suppliers">{suppliers.slice(0,12).map(s=><option key={s.id} value={s.name}/>)}</datalist>
       </form>
 
       <form onSubmit={submitPurchase} className="space-y-3 rounded-xl border bg-card p-4">
         <h2 className="font-display text-lg font-bold">{t("purchases")}</h2>
+        <SearchHistoryBar value={supplierSearch} onChange={setSupplierSearch} historyKey="suppliers" placeholder="Find supplier by name, phone or address…"/>
         <div className="grid gap-2 sm:grid-cols-3">
           <Select value={supplierId} onValueChange={setSupplierId}>
             <SelectTrigger><SelectValue placeholder={t("supplier")} /></SelectTrigger>
-            <SelectContent>{suppliers.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+            <SelectContent>{visibleSuppliers.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
           </Select>
           <div className="space-y-1"><Label>{t("date")}</Label><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
           <div className="space-y-1"><Label>{t("paid")}</Label><Input type="number" min={0} step="0.01" value={paid} onChange={(e) => setPaid(e.target.value)} /></div>
@@ -232,7 +242,7 @@ function Purchases() {
         <form onSubmit={submitSupplierPayment} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_9rem_9rem_auto]">
           <Select value={paySupplier} onValueChange={setPaySupplier}>
             <SelectTrigger><SelectValue placeholder={t("supplier")} /></SelectTrigger>
-            <SelectContent>{suppliers.map((s) => <SelectItem key={s.id} value={s.id}>{s.name} · {money(dueOf(s.id))}</SelectItem>)}</SelectContent>
+            <SelectContent>{visibleSuppliers.map((s) => <SelectItem key={s.id} value={s.id}>{s.name} · {money(dueOf(s.id))}</SelectItem>)}</SelectContent>
           </Select>
           <Input type="number" min={0.01} step="0.01" placeholder={t("amount")} value={payAmt} onChange={(e) => setPayAmt(e.target.value)} />
           <Select value={payMethod} onValueChange={setPayMethod}>
@@ -253,15 +263,19 @@ function Purchases() {
 
       <section className="space-y-2 rounded-xl border bg-card p-4">
         <h2 className="font-display text-lg font-bold">{t("history")}</h2>
+        <SearchHistoryBar value={historySearch} onChange={setHistorySearch} historyKey="purchase-history" placeholder="Search purchase no. or supplier…">
+          <Select value={historySupplier} onValueChange={setHistorySupplier}><SelectTrigger className="w-[180px]"><SelectValue placeholder="Supplier"/></SelectTrigger><SelectContent><SelectItem value="all">All suppliers</SelectItem>{suppliers.map(s=><SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select>
+          <Input className="w-auto" type="date" value={historyFrom} onChange={e=>setHistoryFrom(e.target.value)}/><Input className="w-auto" type="date" value={historyTo} onChange={e=>setHistoryTo(e.target.value)}/>
+        </SearchHistoryBar>
         <div className="space-y-1 text-sm">
-          {purchases.map((p) => (
+          {visiblePurchases.map((p) => (
             <div key={p.id} className="flex items-center justify-between gap-2 rounded bg-muted px-2 py-1">
               <span className="min-w-0 flex-1 truncate">{p.doc_no ?? ""} · {suppliers.find((s) => s.id === p.supplier_id)?.name ?? ""}</span>
               <span className="shrink-0 text-muted-foreground">{p.txn_date}</span>
               <span className="shrink-0">{t("total")} {money(p.total)} · {t("paid")} {money(p.paid)}</span>
             </div>
           ))}
-          {purchases.length === 0 && <p className="text-muted-foreground">{t("noData")}</p>}
+          {visiblePurchases.length === 0 && <p className="text-muted-foreground">{t("noData")}</p>}
         </div>
       </section>
     </div>
