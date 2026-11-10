@@ -27,10 +27,10 @@ export function CartBuilder({
   const { t } = useT();
   const { data: products = [] } = useProducts();
   const productLabel = useProductLabel();
-  const stockByProductId = Object.fromEntries((summary?.products ?? []).map((p) => [p.product_id, p.hand]));
   const online = useOnline();
   // Salesman's held IMEIs (cached) let sale/return scans be checked while offline.
   const { data: summary } = useSalesmanSummary(mode === "issue" ? undefined : salesmanId);
+  const stockByProductId = Object.fromEntries((summary?.products ?? []).map((p) => [p.product_id, p.hand]));
   const [pid, setPid] = useState("");
   const [qty, setQty] = useState("1");
 
