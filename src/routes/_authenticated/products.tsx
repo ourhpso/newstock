@@ -93,6 +93,8 @@ function Products() {
       setF({ name: "", model: "", price: "", is_smartphone: true, stock_qty: "" });
       toast.success(t("done"));
       refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error));
     } finally {
       setAdding(false);
     }
@@ -100,7 +102,7 @@ function Products() {
 
   async function saveImeis() {
     if (!imeiFor || savingImeis) return;
-    const raw = imeiText.split(/[\\s,]+/).map((s) => s.trim()).filter(Boolean);
+    const raw = imeiText.split(/[\s,]+/).map((s) => s.trim()).filter(Boolean);
     const list = [...new Set(raw)];
     const cost = Number(imeiCost);
     const bad = raw.filter((i) => !isValidImeiFormat(i));
