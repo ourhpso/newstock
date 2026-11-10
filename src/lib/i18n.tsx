@@ -40,6 +40,7 @@ const dict = {
   dashboard: ["ড্যাশবোর্ড", "Dashboard"],
   products: ["প্রোডাক্ট", "Products"],
   salesmen: ["সেলসম্যান", "Salesmen"],
+  reports: ["বিস্তারিত রিপোর্ট", "Detailed reports"],
   stockIssue: ["মাল দেওয়া", "Stock Issue"],
   sales: ["বিক্রি", "Sales"],
   retailers: ["দোকান / রিটেইলার", "Retailers"],
