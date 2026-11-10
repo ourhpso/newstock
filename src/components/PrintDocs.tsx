@@ -1,7 +1,7 @@
 import { useEffect, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useT } from "@/lib/i18n";
-import { money } from "@/lib/imei";
+import { formatInteger, money } from "@/lib/imei";
 import type { Business } from "@/lib/business";
 // Logo is served from /public so printed letterheads work on every host.
 const LOGO_URL = "/firoza-logo.png";
@@ -25,7 +25,7 @@ const th: CSSProperties = { ...cell, background: "#0f766e", color: "#fff", textA
 const thR: CSSProperties = { ...th, textAlign: "right" };
 const tdR: CSSProperties = { ...cell, textAlign: "right" };
 
-const fmtDate = (iso: string) => new Date(iso).toLocaleString("bn-BD", { dateStyle: "medium", timeStyle: "short" });
+const fmtDate = (iso: string) => new Date(iso).toLocaleString("en-GB", { timeZone: "Asia/Dhaka", dateStyle: "medium", timeStyle: "short" });
 
 function Letterhead({ b, title, fallbackName }: { b: Business; title: string; fallbackName: string }) {
   return (
@@ -85,7 +85,7 @@ export function SaleReceiptDoc({
                 {it.name}
                 {it.imeis.length > 0 && <div style={{ fontSize: 10, color: "#475569" }}>IMEI: {it.imeis.join(", ")}</div>}
               </td>
-              <td style={tdR}>{it.qty}</td>
+              <td style={tdR}>{formatInteger(it.qty)}</td>
               <td style={tdR}>{money(it.unit_price)}</td>
               <td style={tdR}>{money(it.qty * it.unit_price)}</td>
             </tr>
@@ -151,7 +151,7 @@ export function LedgerDoc({
         <tbody>
           {entries.map((e, i) => (
             <tr key={i}>
-              <td style={cell}>{new Date(e.date).toLocaleDateString("bn-BD")}</td>
+              <td style={cell}>{new Date(e.date).toLocaleDateString("en-GB", { timeZone: "Asia/Dhaka" })}</td>
               <td style={cell}>{e.label}</td>
               <td style={tdR}>{e.debit ? money(e.debit) : ""}</td>
               <td style={tdR}>{e.credit ? money(e.credit) : ""}</td>
@@ -178,7 +178,7 @@ export function TableDoc({
   return (
     <div>
       <Letterhead b={b} title={title} fallbackName={appName} />
-      <div style={{ fontSize: 12, marginBottom: 8, textAlign: "right" }}>{t("date")}: {new Date().toLocaleDateString("bn-BD", { dateStyle: "medium" })}</div>
+      <div style={{ fontSize: 12, marginBottom: 8, textAlign: "right" }}>{t("date")}: {new Date().toLocaleDateString("en-GB", { timeZone: "Asia/Dhaka", dateStyle: "medium" })}</div>
       <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <thead>
           <tr>{head.map((h, i) => <th key={i} style={i === 0 ? th : thR}>{h}</th>)}</tr>
@@ -217,8 +217,8 @@ export function SettlementDoc({
         <tbody>
           {products.map((p, i) => (
             <tr key={i}>
-              <td style={cell}>{p.name}</td><td style={tdR}>{p.issued}</td><td style={tdR}>{p.sold}</td>
-              <td style={tdR}>{p.returned}</td><td style={tdR}>{p.damaged}</td><td style={{ ...tdR, fontWeight: 700 }}>{p.hand}</td>
+              <td style={cell}>{p.name}</td><td style={tdR}>{formatInteger(p.issued)}</td><td style={tdR}>{formatInteger(p.sold)}</td>
+              <td style={tdR}>{formatInteger(p.returned)}</td><td style={tdR}>{formatInteger(p.damaged)}</td><td style={{ ...tdR, fontWeight: 700 }}>{formatInteger(p.hand)}</td>
               <td style={tdR}>{money(p.value)}</td>
             </tr>
           ))}
