@@ -170,7 +170,7 @@ function Products() {
           <div key={p.id} className="rounded-xl border bg-card p-4">
             <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
               <div className="min-w-0 break-words">
-                <div className="font-display text-lg font-bold">{brands.find((b) => b.id === (p as any).brand_id)?.name ?? ""} {models.find((m) => m.id === (p as any).model_id)?.name ?? p.model ?? p.name} <span className="text-sm font-normal text-muted-foreground">{p.name}</span></div>
+                <div className="font-display text-lg font-bold">{brands.find((b) => b.id === (p as any).brand_id)?.name ?? "OTHER"} {models.find((m) => m.id === (p as any).model_id)?.name ?? p.model ?? p.name} <span className="text-sm font-normal text-muted-foreground">{p.name}</span></div>
                 <div className="text-sm text-muted-foreground">{p.is_smartphone ? t("smartphone") : t("buttonPhone")} · {money(p.price)} · {t("costPrice")} {money(p.cost_price)}</div>
                 <ProductCatalogAssignment product={p} onSaved={refresh} />
               </div>
