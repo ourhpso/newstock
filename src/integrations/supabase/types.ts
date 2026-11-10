@@ -282,6 +282,8 @@ export type Database = {
           stock_qty?: number
         }
         Update: {
+          brand_id?: string | null
+          model_id?: string | null
           cost_price?: number
           created_at?: string
           id?: string
