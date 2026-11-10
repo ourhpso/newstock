@@ -200,10 +200,12 @@ function Purchases() {
         <Input placeholder={t("phone")} value={supplierForm.phone} onChange={(e) => setSupplierForm({ ...supplierForm, phone: e.target.value })} />
         <Input placeholder={t("address")} value={supplierForm.address} onChange={(e) => setSupplierForm({ ...supplierForm, address: e.target.value })} />
         <Button>{t("add")}</Button>
+        <datalist id="recent-suppliers">{suppliers.slice(0,12).map(s=><option key={s.id} value={s.name}/>)}</datalist>
       </form>
 
       <form onSubmit={submitPurchase} className="space-y-3 rounded-xl border bg-card p-4">
         <h2 className="font-display text-lg font-bold">{t("purchases")}</h2>
+        <SearchHistoryBar value={supplierSearch} onChange={setSupplierSearch} historyKey="suppliers" placeholder="Find supplier by name, phone or address…"/>
         <div className="grid gap-2 sm:grid-cols-3">
           <Select value={supplierId} onValueChange={setSupplierId}>
             <SelectTrigger><SelectValue placeholder={t("supplier")} /></SelectTrigger>
@@ -261,6 +263,10 @@ function Purchases() {
 
       <section className="space-y-2 rounded-xl border bg-card p-4">
         <h2 className="font-display text-lg font-bold">{t("history")}</h2>
+        <SearchHistoryBar value={historySearch} onChange={setHistorySearch} historyKey="purchase-history" placeholder="Search purchase no. or supplier…">
+          <Select value={historySupplier} onValueChange={setHistorySupplier}><SelectTrigger className="w-[180px]"><SelectValue placeholder="Supplier"/></SelectTrigger><SelectContent><SelectItem value="all">All suppliers</SelectItem>{suppliers.map(s=><SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select>
+          <Input className="w-auto" type="date" value={historyFrom} onChange={e=>setHistoryFrom(e.target.value)}/><Input className="w-auto" type="date" value={historyTo} onChange={e=>setHistoryTo(e.target.value)}/>
+        </SearchHistoryBar>
         <div className="space-y-1 text-sm">
           {visiblePurchases.map((p) => (
             <div key={p.id} className="flex items-center justify-between gap-2 rounded bg-muted px-2 py-1">
