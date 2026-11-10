@@ -7,7 +7,7 @@ const sr = "22222222-2222-4222-8222-222222222222";
 const phone = "66666666-6666-4666-8666-666666666666";
 const button = "77777777-7777-4777-8777-777777777777";
 const IA = "356938035643809";
-const IB = "356938035643800";
+const IB = "356938035643817";
 
 // Mirrors the exact call sequence the Products page and Stock Issue page make:
 // create product -> register IMEIs / receive opening stock -> check_imei -> issue.
