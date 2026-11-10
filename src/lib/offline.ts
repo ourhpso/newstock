@@ -232,7 +232,7 @@ export async function runOrQueue(op: QueuedOp, offline: boolean, userId: string 
  */
 export type ReplayResult = { synced: number; failed: number; firstError: string | null };
 const replayInFlight = new Map<string, Promise<ReplayResult>>();
-export function replayQueue(currentUserId: string | null = null): Promise<ReplayResult> {
+export function replayQueue(currentUserId: string | null = activeQueueUserId()): Promise<ReplayResult> {
   // Never replay legacy/unowned queue entries or any entries while signed out.
   if (!currentUserId) return Promise.resolve({ synced: 0, failed: 0, firstError: null });
   const existing = replayInFlight.get(currentUserId);
