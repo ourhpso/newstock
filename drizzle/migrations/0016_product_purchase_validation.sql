@@ -9,7 +9,7 @@ DECLARE
   it jsonb; p record; im text; n int; pid uuid;
   tot numeric := 0; cost numeric;
   d date := coalesce(_date,(now() AT TIME ZONE 'Asia/Dhaka')::date);
-  digits text; checksum int; digit int; pos int;
+  checksum int; digit int; pos int;
 BEGIN
   PERFORM set_config('app.via_rpc','on',true);
   IF NOT public.has_role(auth.uid(),'admin') THEN RAISE EXCEPTION 'Owner only'; END IF;
@@ -76,7 +76,7 @@ BEGIN
     ELSE
       n := (it->>'qty')::int;
       UPDATE public.products
-        SET cost_price=round(((cost_price*stock_qty)+(cost*n))/(stock_qty+n),2),
+        SET cost_price=round(((coalesce(cost_price,0)*stock_qty)+(cost*n))/(stock_qty+n),2),
             stock_qty=stock_qty+n
         WHERE id=p.id;
       INSERT INTO public.stock_movements(salesman_id,product_id,kind,qty,unit_price,cost_price,batch_no,txn_date)
