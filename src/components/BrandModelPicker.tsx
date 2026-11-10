@@ -132,3 +132,49 @@ export function BrandModelProductPicker({
     </div>
   );
 }
+
+export function BrandModelFields({
+  brandId, modelId, onBrandChange, onModelChange, allowManage = false,
+}: {
+  brandId: string;
+  modelId: string;
+  onBrandChange: (id: string) => void;
+  onModelChange: (id: string) => void;
+  allowManage?: boolean;
+}) {
+  const db = supabase as any;
+  const qc = useQueryClient();
+  const { brands, models } = useProductCatalog();
+  const [newBrand, setNewBrand] = useState("");
+  const [newModel, setNewModel] = useState("");
+  async function addBrand() {
+    const name = newBrand.trim().toUpperCase();
+    if (!name) return;
+    const { data, error } = await db.from("product_brands").insert({ name }).select("id").single();
+    if (error) { toast.error(error.message); return; }
+    await qc.invalidateQueries({ queryKey: ["product-brands"] });
+    onBrandChange(data.id); onModelChange(""); setNewBrand("");
+  }
+  async function addModel() {
+    const name = newModel.trim();
+    if (!brandId || !name) return;
+    const { data, error } = await db.from("product_models").insert({ brand_id: brandId, name }).select("id").single();
+    if (error) { toast.error(error.message); return; }
+    await qc.invalidateQueries({ queryKey: ["product-models"] });
+    onModelChange(data.id); setNewModel("");
+  }
+  return (
+    <div className="grid gap-2">
+      <Select value={brandId} onValueChange={(v) => { onBrandChange(v); onModelChange(""); }}>
+        <SelectTrigger><SelectValue placeholder="Brand" /></SelectTrigger>
+        <SelectContent>{brands.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}</SelectContent>
+      </Select>
+      {allowManage && <div className="flex gap-2"><Input value={newBrand} onChange={(e) => setNewBrand(e.target.value)} placeholder="Add another brand" /><Button type="button" size="sm" variant="outline" onClick={addBrand} disabled={!newBrand.trim()}>+</Button></div>}
+      <Select value={modelId} disabled={!brandId} onValueChange={onModelChange}>
+        <SelectTrigger><SelectValue placeholder="Model" /></SelectTrigger>
+        <SelectContent>{models.filter((m) => m.brand_id === brandId).map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}</SelectContent>
+      </Select>
+      {allowManage && brandId && <div className="flex gap-2"><Input value={newModel} onChange={(e) => setNewModel(e.target.value)} placeholder="Add model for selected brand" /><Button type="button" size="sm" variant="outline" onClick={addModel} disabled={!newModel.trim()}>+</Button></div>}
+    </div>
+  );
+}
