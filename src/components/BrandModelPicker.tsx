@@ -178,11 +178,13 @@ export function BrandModelFields({
   }
   return (
     <div className="grid gap-2">
+      {recentChips(brands,"brand",(v)=>{onBrandChange(v);onModelChange("");}).length>0 && <div className="flex flex-wrap gap-1">{recentChips(brands,"brand",(v)=>{onBrandChange(v);onModelChange("");})}</div>}
       <Select value={brandId} onValueChange={(v) => { rememberId("brand",v); onBrandChange(v); onModelChange(""); }}>
         <SelectTrigger><SelectValue placeholder="Brand" /></SelectTrigger>
         <SelectContent>{brands.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}</SelectContent>
       </Select>
       {allowManage && <div className="flex gap-2"><Input value={newBrand} onChange={(e) => setNewBrand(e.target.value)} placeholder="Add another brand" /><Button type="button" size="sm" variant="outline" onClick={addBrand} disabled={!newBrand.trim()}>+</Button></div>}
+      {brandId && recentChips(models.filter((m)=>m.brand_id===brandId),"model:"+brandId,onModelChange).length>0 && <div className="flex flex-wrap gap-1">{recentChips(models.filter((m)=>m.brand_id===brandId),"model:"+brandId,onModelChange)}</div>}
       <Select value={modelId} disabled={!brandId} onValueChange={(v) => { rememberId("model:"+brandId,v); onModelChange(v); }}>
         <SelectTrigger><SelectValue placeholder="Model" /></SelectTrigger>
         <SelectContent>{models.filter((m) => m.brand_id === brandId).map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}</SelectContent>
