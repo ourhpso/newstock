@@ -9,7 +9,7 @@ const phone = "66666666-6666-4666-8666-666666666666";
 const button = "77777777-7777-4777-8777-777777777777";
 const retailer = "44444444-4444-4444-8444-444444444444";
 const IMEI1 = "356938035643809";
-const IMEI2 = "356938035643800";
+const IMEI2 = "356938035643817";
 
 describe("accounting chain (all migrations, PGlite)", () => {
   let db: PGlite;
