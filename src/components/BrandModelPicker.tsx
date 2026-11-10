@@ -65,17 +65,17 @@ export function BrandModelProductPicker({
   const [modelId, setModelId] = useState(selected?.model_id ?? "");
   const [newBrand, setNewBrand] = useState("");
   const [newModel, setNewModel] = useState("");
-  const [counts, setCounts] = useState<Record<string, number>>({});
   useEffect(() => {
     if (selected) { setBrandId(selected.brand_id ?? ""); setModelId(selected.model_id ?? ""); }
   }, [selected?.id, selected?.brand_id, selected?.model_id]);
-  useEffect(() => {
-    let active = true;
-    db.rpc("distribution_stock_counts").then(({ data, error }: any) => {
-      if (active && !error && data && typeof data === "object") setCounts(data as Record<string, number>);
-    });
-    return () => { active = false; };
-  }, []);
+  const { data: counts = {} } = useQuery<Record<string, number>>({
+    queryKey: ["imei-counts"],
+    queryFn: async () => {
+      const { data, error } = await db.rpc("distribution_stock_counts");
+      if (error) throw error;
+      return (data ?? {}) as Record<string, number>;
+    },
+  });
   const otherBrandId = brands.find((b) => b.name === "OTHER")?.id;
   const brandModels = models.filter((m) => m.brand_id === brandId);
   const brandProducts = products.filter((p) => ((p as any).brand_id === brandId || (brandId === otherBrandId && !(p as any).brand_id)) && (!onlyProductIds || onlyProductIds.includes(p.id)) && (!excludeSmartphones || !p.is_smartphone));
