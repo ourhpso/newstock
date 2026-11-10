@@ -13,7 +13,7 @@ import { Toaster, toast } from "sonner";
 import { LangProvider, useT } from "@/lib/i18n";
 import { supabase } from "@/integrations/supabase/client";
 import { persistQueryClient } from "@tanstack/react-query-persist-client";
-import { createAppPersister, hasCachedData, shouldPersistQuery, CACHE_BUSTER } from "@/lib/query-persist";
+import { createAppPersister, hasCachedData, shouldPersistQuery, CACHE_BUSTER, clearUserCache } from "@/lib/query-persist";
 import { registerAppSW } from "@/lib/pwa-register";
 import { replayQueue, useOnline } from "@/lib/offline";
 
@@ -141,24 +141,60 @@ function RootComponent() {
   }, []);
 
   useEffect(() => {
-    const persister = createAppPersister();
-    if (!persister) return;
-    const [unsubscribe] = persistQueryClient({
-      // Bun's isolated installs give react-query and persist-client separate
-      // physical query-core copies; the QueryClient types are identical at runtime.
-      queryClient: queryClient as never,
-      persister,
-      buster: CACHE_BUSTER,
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-      dehydrateOptions: { shouldDehydrateQuery: shouldPersistQuery },
+    let activeUserId: string | null = null;
+    let stopPersist: (() => void) | null = null;
+    let disposed = false;
+
+    const activateUserCache = (nextUserId: string | null) => {
+      if (disposed || nextUserId === activeUserId) return;
+      const previousUserId = activeUserId;
+      stopPersist?.();
+      stopPersist = null;
+      activeUserId = nextUserId;
+
+      // Never let one account inherit another account's in-memory or disk cache.
+      if (previousUserId) clearUserCache(previousUserId);
+      queryClient.clear();
+
+      if (!nextUserId) return;
+      const persister = createAppPersister(nextUserId);
+      if (!persister) return;
+      const [unsubscribe] = persistQueryClient({
+        // Bun's isolated installs give react-query and persist-client separate
+        // physical query-core copies; the QueryClient types are identical at runtime.
+        queryClient: queryClient as never,
+        persister,
+        buster: CACHE_BUSTER,
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+        dehydrateOptions: { shouldDehydrateQuery: shouldPersistQuery },
+      });
+      stopPersist = unsubscribe;
+    };
+
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      activateUserCache(session?.user?.id ?? null);
     });
+    void supabase.auth.getSession().then(({ data: sessionData }) => {
+      activateUserCache(sessionData.session?.user?.id ?? null);
+    });
+
     return () => {
-      unsubscribe();
+      disposed = true;
+      data.subscription.unsubscribe();
+      stopPersist?.();
     };
   }, [queryClient]);
 
   useEffect(() => {
-    setFirstOpenBlocked(!online && !hasCachedData());
+    let live = true;
+    if (online) {
+      setFirstOpenBlocked(false);
+    } else {
+      void supabase.auth.getSession().then(({ data }) => {
+        if (live) setFirstOpenBlocked(!hasCachedData(data.session?.user?.id));
+      });
+    }
+    return () => { live = false; };
   }, [online]);
 
   useEffect(() => {
