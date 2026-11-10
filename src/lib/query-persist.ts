@@ -20,6 +20,16 @@ export function createAppPersister(userId: string) {
   });
 }
 
+export function clearLegacySharedCache(): void {
+  if (typeof window === "undefined") return;
+  try {
+    // Remove the old unscoped v1 cache; it must never be restored by this version.
+    window.localStorage.removeItem("rq-cache-v1");
+  } catch {
+    // Ignore unavailable browser storage.
+  }
+}
+
 export function clearUserCache(userId: string): void {
   if (typeof window === "undefined" || !userId) return;
   try {
