@@ -19,7 +19,7 @@ export function DashboardAlerts({ data, isAdmin }: { data: DashboardInsights; is
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 flex-1 basis-56">
             <h2 className="flex items-start gap-2 text-lg font-bold text-destructive"><AlertTriangle className="mt-1 h-5 w-5 shrink-0" />{t("overdueRetailers")}</h2>
-            <p className="mt-1 text-sm text-muted-foreground">{t("overdueBalance")}: <strong className="text-destructive">{money(data.overdueTotal)}</strong> · {data.overdue.length} {t("retailers")}</p>
+            <p className="mt-1 text-sm text-muted-foreground">{t("overdueBalance")}: <strong className="text-destructive">{money(data.overdueTotal)}</strong> · {formatInteger(data.overdue.length)} {t("retailers")}</p>
           </div>
           <div className="flex flex-wrap justify-end gap-2">
             <Button size="sm" variant="outline" onClick={() => setPrinting(true)}><FileDown className="h-4 w-4" />{t("pdfExport")}</Button>
