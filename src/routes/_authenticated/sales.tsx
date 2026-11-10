@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PageTitle } from "@/components/Stat";
+import { SearchHistoryBar } from "@/components/SearchHistoryBar";
 
 export const Route = createFileRoute("/_authenticated/sales")({
   head: () => pageHead("বিক্রি", "FIROZA ENTERPRISE retailer sales, payments and invoices."),
@@ -36,6 +37,8 @@ function Sales() {
   const [business] = useBusiness();
   const online = useOnline();
   const [rid, setRid] = useState("");
+  const [retailerSearch,setRetailerSearch]=useState("");
+  const filteredRetailers=retailers.filter(r=>!retailerSearch.trim()||[r.name,r.phone,r.address].some(v=>String(v??"").toLowerCase().includes(retailerSearch.trim().toLowerCase())));
   const [paid, setPaid] = useState("");
   const [discount, setDiscount] = useState("");
   const [date, setDate] = useState(todayDhaka());
@@ -116,9 +119,10 @@ function Sales() {
           </div>
         </div>
       )}
+      <SearchHistoryBar value={retailerSearch} onChange={setRetailerSearch} historyKey="sales-retailers" placeholder="Search customer/dealer name or phone…"/>
       <Select value={rid} onValueChange={setRid}>
         <SelectTrigger className="w-full sm:w-72"><SelectValue placeholder={t("selectRetailer")} /></SelectTrigger>
-        <SelectContent>{retailers.map((r) => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}</SelectContent>
+        <SelectContent>{filteredRetailers.map((r) => <SelectItem key={r.id} value={r.id}>{r.name}{r.phone ? " · "+r.phone : ""}</SelectItem>)}</SelectContent>
       </Select>
       {ledger && (
         <p className="text-sm text-muted-foreground">
