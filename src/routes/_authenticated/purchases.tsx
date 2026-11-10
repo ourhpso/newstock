@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PageTitle } from "@/components/Stat";
-import { BrandModelProductPicker, useProductLabel } from "@/components/BrandModelPicker";
+import { BrandModelProductPicker } from "@/components/BrandModelPicker";
 
 export const Route = createFileRoute("/_authenticated/purchases")({
   beforeLoad: requireAdmin,
@@ -39,7 +39,6 @@ function Purchases() {
   const { t } = useT();
   const qc = useQueryClient();
   const { data: products = [] } = useProducts();
-  const productLabel = useProductLabel();
   const [supplierForm, setSupplierForm] = useState({ name: "", phone: "", address: "" });
   const [supplierId, setSupplierId] = useState("");
   const [date, setDate] = useState(todayDhaka());
