@@ -52,6 +52,8 @@ export function BrandModelProductPicker({
   allowManage?: boolean;
   placeholder?: string;
   showStock?: boolean;
+  onlyProductIds?: string[];
+  excludeSmartphones?: boolean;
 }) {
   const db = supabase as any;
   const qc = useQueryClient();
