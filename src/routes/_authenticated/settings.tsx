@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { pageHead } from "@/lib/page-head";
 import { useMe } from "@/lib/me";
 import { useT, type Key } from "@/lib/i18n";
+import { formatDateTime, formatInteger, money } from "@/lib/imei";
 import { useBusiness } from "@/lib/business";
 import { getQueue, removeQueueEntry, replayQueue, useOnline, usePendingSyncCount } from "@/lib/offline";
 import { CACHE_KEY } from "@/lib/query-persist";
@@ -98,7 +99,7 @@ function Settings() {
           {getQueue().map((e) => (
             <div key={e.id} className="flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2 text-sm">
               <span className="font-medium">{e.op.kind}</span>
-              <span className="text-muted-foreground">{new Date(e.createdAt).toLocaleString()}</span>
+              <span className="text-muted-foreground">{formatDateTime(e.createdAt)}</span>
               {e.attempts > 0 && <span className="text-muted-foreground">{t("attempts")}: {e.attempts}</span>}
               {e.lastError && <span className="min-w-0 flex-1 break-words text-destructive">{e.lastError}</span>}
               <span className="flex-1" />
@@ -113,7 +114,7 @@ function Settings() {
         <p className="max-w-3xl text-sm text-muted-foreground">{t("backupScope")}</p>
         <Button disabled={blocked} onClick={() => void run(download)}><Download className="mr-2 h-4 w-4" />{t("downloadBackup")}</Button>
         <div className="space-y-2"><Label htmlFor="backup-file">{t("chooseFile")}</Label><Input id="backup-file" className="max-w-xl" type="file" accept="application/json,.json" disabled={blocked} onChange={(e) => { const file = e.target.files?.[0]; setBackup(null); if (!file) return; if (file.size > 20 * 1024 * 1024) { toast.error("20 MB maximum"); return; } void run(async () => { setBackup(parseBusinessBackup(await file.text())); }); }} /></div>
-        {backup && <div className="space-y-3"><p className="text-sm">{new Date(backup.exported_at).toLocaleString()}</p><div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">{backupCounts(backup).map(({ table, count }) => <div key={table} className="border-b py-1">{t(tableLabel[table] ?? "history")}: <b>{count}</b></div>)}</div><p className="text-sm text-muted-foreground">{t("restoreScope")}</p><Button variant="outline" disabled={blocked || !backupId} onClick={() => open("restore")}><Upload className="mr-2 h-4 w-4" />{t("restore")}</Button></div>}
+        {backup && <div className="space-y-3"><p className="text-sm">{formatDateTime(backup.exported_at)}</p><div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">{backupCounts(backup).map(({ table, count }) => <div key={table} className="border-b py-1">{t(tableLabel[table] ?? "history")}: <b>{formatInteger(count)}</b></div>)}</div><p className="text-sm text-muted-foreground">{t("restoreScope")}</p><Button variant="outline" disabled={blocked || !backupId} onClick={() => open("restore")}><Upload className="mr-2 h-4 w-4" />{t("restore")}</Button></div>}
         {!backupId && <p className="text-sm text-muted-foreground">{t("safetyBackup")}</p>}
       </section>
       <AccountCorrections />
@@ -141,9 +142,9 @@ function AccountCorrections() {
     <div className="divide-y">{data.filter((row) => JSON.stringify(row).toLowerCase().includes(search.toLowerCase())).map((row) => {
       const r = row as { id: string; created_at: string; amount?: number; note?: string | null; total?: number; imei?: string; kind?: string; qty?: number };
       const fields = table === "retailer_payments" || table === "deposits" ? [{ key: "amount", label: "amount" as const, value: r.amount ?? 0, type: "number" as const }, { key: "note", label: "note" as const, value: r.note ?? "" }] : [];
-      return <div key={r.id} className="flex items-center justify-between gap-2 py-3"><div className="min-w-0"><p className="break-all text-sm font-semibold">{r.imei ?? r.amount ?? r.total ?? `${r.kind} · ${r.qty}`}</p><p className="text-xs text-muted-foreground">{new Date(r.created_at).toLocaleString()}</p><p className="break-all text-xs text-muted-foreground">{r.id}</p></div><RecordActions table={table} id={r.id} fields={fields} /></div>;
+      return <div key={r.id} className="flex items-center justify-between gap-2 py-3"><div className="min-w-0"><p className="break-all text-sm font-semibold">{r.imei ?? (r.amount != null ? money(r.amount) : r.total != null ? money(r.total) : `${r.kind} · ${formatInteger(r.qty)}`)}</p><p className="text-xs text-muted-foreground">{formatDateTime(r.created_at)}</p><p className="break-all text-xs text-muted-foreground">{r.id}</p></div><RecordActions table={table} id={r.id} fields={fields} /></div>;
     })}</div>
-    <div className="flex justify-end gap-2"><Button variant="outline" disabled={page === 0} onClick={() => setPage(page - 1)}>←</Button><span className="self-center text-sm">{page + 1}</span><Button variant="outline" disabled={data.length < 50} onClick={() => setPage(page + 1)}>→</Button></div>
-    <h3 className="font-semibold">{t("auditLog")}</h3><div className="max-h-60 overflow-auto divide-y text-sm">{audit.map((a) => <div key={a.id} className="py-2"><span>{a.action} · {a.entity ? t(tableLabel[a.entity] ?? "salesmen") : t("settings")}</span><p className="break-words text-muted-foreground">{a.reason} · {new Date(a.created_at).toLocaleString()}</p></div>)}</div>
+    <div className="flex justify-end gap-2"><Button variant="outline" disabled={page === 0} onClick={() => setPage(page - 1)}>←</Button><span className="self-center text-sm">{formatInteger(page + 1)}</span><Button variant="outline" disabled={data.length < 50} onClick={() => setPage(page + 1)}>→</Button></div>
+    <h3 className="font-semibold">{t("auditLog")}</h3><div className="max-h-60 overflow-auto divide-y text-sm">{audit.map((a) => <div key={a.id} className="py-2"><span>{a.action} · {a.entity ? t(tableLabel[a.entity] ?? "salesmen") : t("settings")}</span><p className="break-words text-muted-foreground">{a.reason} · {formatDateTime(a.created_at)}</p></div>)}</div>
   </section>;
 }

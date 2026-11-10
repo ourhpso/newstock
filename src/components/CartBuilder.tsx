@@ -5,7 +5,7 @@ import { useProducts, useSalesmanSummary } from "@/lib/me";
 import { BrandModelProductPicker, useProductLabel } from "@/components/BrandModelPicker";
 import { isNetworkFailure, useOnline } from "@/lib/offline";
 import { useT } from "@/lib/i18n";
-import { money } from "@/lib/imei";
+import { formatInteger, money } from "@/lib/imei";
 import { ImeiScanner } from "./ImeiScanner";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -104,7 +104,7 @@ export function CartBuilder({
         <div className="mt-2 grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
           {products.filter((p) => p.is_smartphone).map((p) => {
             const available = mode === "issue" ? imeiCounts[p.id] ?? 0 : stockByProductId[p.id] ?? 0;
-            return <div key={p.id} className="flex justify-between gap-2"><span className="truncate">{productLabel(p.id) || p.name}</span><b className="shrink-0">{available} pcs</b></div>;
+            return <div key={p.id} className="flex justify-between gap-2"><span className="truncate">{productLabel(p.id) || p.name}</span><b className="shrink-0">{formatInteger(available)} pcs</b></div>;
           })}
         </div>
       </div>
@@ -121,7 +121,7 @@ export function CartBuilder({
         {cart.length === 0 && <p className="text-sm text-muted-foreground">{t("noData")}</p>}
         {cart.map((l, i) => (
           <div key={l.product_id} className="flex flex-wrap items-center gap-2 border-b py-2 text-sm last:border-0">
-            <span className="min-w-0 flex-1 basis-full break-words font-medium sm:basis-auto">{l.name} × {l.qty}</span>
+            <span className="min-w-0 flex-1 basis-full break-words font-medium sm:basis-auto">{l.name} × {formatInteger(l.qty)}</span>
             {editPrice ? (
               <Input className="h-8 w-28" type="number" value={l.unit_price} onChange={(e) => { const n = [...cart]; n[i] = { ...l, unit_price: Number(e.target.value) }; setCart(n); }} />
             ) : <span>{money(l.unit_price)}</span>}

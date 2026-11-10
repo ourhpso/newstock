@@ -1,6 +1,6 @@
 import { useSalesmanSummary } from "@/lib/me";
 import { useT } from "@/lib/i18n";
-import { money } from "@/lib/imei";
+import { formatInteger, money } from "@/lib/imei";
 import { Stat } from "./Stat";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
@@ -36,11 +36,11 @@ export function SalesmanSummary({ salesmanId }: { salesmanId: string }) {
             {data.products.map((p) => (
               <TableRow key={p.product_id}>
                 <TableCell className="font-medium">{p.name}</TableCell>
-                <TableCell>{p.issued}</TableCell>
-                <TableCell>{p.sold}</TableCell>
-                <TableCell>{p.returned}</TableCell>
-                <TableCell>{p.damaged}</TableCell>
-                <TableCell className="font-bold">{p.hand}</TableCell>
+                <TableCell>{formatInteger(p.issued)}</TableCell>
+                <TableCell>{formatInteger(p.sold)}</TableCell>
+                <TableCell>{formatInteger(p.returned)}</TableCell>
+                <TableCell>{formatInteger(p.damaged)}</TableCell>
+                <TableCell className="font-bold">{formatInteger(p.hand)}</TableCell>
               </TableRow>
             ))}
           </TableBody>

@@ -1,6 +1,6 @@
 import { Stat } from "@/components/Stat";
 import { useT } from "@/lib/i18n";
-import { money } from "@/lib/imei";
+import { formatInteger, money } from "@/lib/imei";
 import type { DashboardInsights } from "@/lib/dashboard";
 
 export function DashboardKpis({ data, isAdmin }: { data: DashboardInsights; isAdmin: boolean }) {
@@ -14,13 +14,13 @@ export function DashboardKpis({ data, isAdmin }: { data: DashboardInsights; isAd
     <Stat label={t("deposited")} value={money(data.deposited)} tone="good" />
     <Stat label={t("retailerDue")} value={money(data.retailerDue)} tone="bad" />
     <Stat label={t("overdueBalance")} value={money(data.overdueTotal)} tone="bad" />
-    {isAdmin && <><Stat label={t("warehouseStock")} value={String(data.warehouseQty ?? 0)} /><Stat label={t("warehouseValue")} value={money(data.warehouseValue)} /></>}
-    <Stat label={t("inHand")} value={String(data.heldQty)} />
+    {isAdmin && <><Stat label={t("warehouseStock")} value={formatInteger(data.warehouseQty ?? 0)} /><Stat label={t("warehouseValue")} value={money(data.warehouseValue)} /></>}
+    <Stat label={t("inHand")} value={formatInteger(data.heldQty)} />
     <Stat label={t("goodsValue")} value={money(data.heldValue)} />
-    <Stat label={t("returned")} value={String(data.returnedQty)} />
-    <Stat label={t("damaged")} value={String(data.damagedQty)} tone="bad" />
-    <Stat label={t("retailerCount")} value={String(data.retailerCount)} />
-    <Stat label={t("invoiceCount")} value={String(data.invoiceCount)} />
-    {isAdmin && <><Stat label={t("activeSalesmen")} value={String(data.activeSalesmen)} /><Stat label={t("lowStockProducts")} value={String(data.lowStock.length)} tone={data.lowStock.length ? "bad" : "good"} /></>}
+    <Stat label={t("returned")} value={formatInteger(data.returnedQty)} />
+    <Stat label={t("damaged")} value={formatInteger(data.damagedQty)} tone="bad" />
+    <Stat label={t("retailerCount")} value={formatInteger(data.retailerCount)} />
+    <Stat label={t("invoiceCount")} value={formatInteger(data.invoiceCount)} />
+    {isAdmin && <><Stat label={t("activeSalesmen")} value={formatInteger(data.activeSalesmen)} /><Stat label={t("lowStockProducts")} value={formatInteger(data.lowStock.length)} tone={data.lowStock.length ? "bad" : "good"} /></>}
   </div>;
 }

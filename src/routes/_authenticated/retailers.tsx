@@ -7,7 +7,7 @@ import { FileSpreadsheet, Printer } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useMe, useProducts, useRetailers, useRetailerLedgers, useSalesmen } from "@/lib/me";
 import { useT } from "@/lib/i18n";
-import { money } from "@/lib/imei";
+import { formatDate, formatDateTime, money } from "@/lib/imei";
 import { exportCsv } from "@/lib/export";
 import { useBusiness } from "@/lib/business";
 import { runOrQueue, useOnline } from "@/lib/offline";
@@ -115,9 +115,9 @@ function Retailers() {
 
   function exportOne(r: RetailerRow) {
     const rows: (string | number)[][] = [[t("date"), t("items"), t("sales"), t("paid")]];
-    for (const s of salesOf(r)) rows.push([new Date(s.created_at).toLocaleString(), `${t("sales")} (${t("paid")} ${money(s.paid)})`, Number(s.total), Number(s.paid)]);
-    for (const p of paysOf(r)) rows.push([new Date(p.created_at).toLocaleString(), `${t("collectPayment")}${p.note ? ` — ${p.note}` : ""}`, "", Number(p.amount)]);
-    for (const x of retsOf(r)) rows.push([new Date(x.created_at).toLocaleString(), `${t("salesReturn")} ${x.doc_no ?? ""}`, "", Number(x.total)]);
+    for (const s of salesOf(r)) rows.push([formatDateTime(s.created_at), `${t("sales")} (${t("paid")} ${money(s.paid)})`, Number(s.total), Number(s.paid)]);
+    for (const p of paysOf(r)) rows.push([formatDateTime(p.created_at), `${t("collectPayment")}${p.note ? ` — ${p.note}` : ""}`, "", Number(p.amount)]);
+    for (const x of retsOf(r)) rows.push([formatDateTime(x.created_at), `${t("salesReturn")} ${x.doc_no ?? ""}`, "", Number(x.total)]);
     rows.push([], [t("total"), "", totalOf(r), paidOf(r)], [t("due"), "", "", dueOf(r)]);
     exportCsv(`ledger-${r.name}.csv`, rows, r.name);
   }
@@ -211,13 +211,13 @@ function Retailers() {
                         {e.kind === "sale" ? (
                           <>
                             <span className="min-w-0 flex-1 truncate">{t("sales")} {money(e.sale.total)} · {t("paid")} {money(e.sale.paid)}</span>
-                            <span className="shrink-0 text-muted-foreground">{new Date(e.at).toLocaleDateString()}</span>
+                            <span className="shrink-0 text-muted-foreground">{formatDate(e.at)}</span>
                             <Button size="sm" variant="ghost" className="h-7 shrink-0 px-2" onClick={() => printSaleReceipt(e.sale, r)} title={t("printReceipt")}><Printer className="h-4 w-4" /></Button>
                           </>
                         ) : e.kind === "pay" && e.pay ? (
                           <>
                             <span className="min-w-0 flex-1 truncate">{t("collectPayment")} {money(e.pay.amount)}{e.pay.note ? ` — ${e.pay.note}` : ""}</span>
-                            <span className="shrink-0 text-muted-foreground">{new Date(e.at).toLocaleDateString()}</span>
+                            <span className="shrink-0 text-muted-foreground">{formatDate(e.at)}</span>
                             <Button size="sm" variant="ghost" className="h-7 shrink-0 px-2" onClick={() => printPayReceipt(e.pay!, r)} title={t("printReceipt")}><Printer className="h-4 w-4" /></Button>
                           </>
                         ) : e.ret ? (
