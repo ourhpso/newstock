@@ -137,8 +137,18 @@ export function getQueue(userId: string | null = activeQueueUserId()): QueueEntr
       } catch { /* Keep malformed legacy data quarantined and untouched. */ }
     }
 
-    // Persist only the current account records; keep the shared legacy queue intact.
+    // Persist this account's migrated records before removing only its rows
+    // from the shared legacy key. Other accounts and unowned rows are retained.
     window.localStorage.setItem(key, JSON.stringify(entries));
+    if (legacyRaw) {
+      try {
+        const legacyRows = JSON.parse(legacyRaw) as RawEntry[];
+        window.localStorage.setItem(
+          LEGACY_QUEUE_KEY,
+          JSON.stringify(legacyRows.filter((row) => row.userId !== userId)),
+        );
+      } catch { /* Leave the legacy source intact if it cannot be safely parsed. */ }
+    }
     return entries;
   } catch {
     return [];
