@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { FileSpreadsheet, Printer } from "lucide-react";
 import { useMe, useSalesmanSummary, useSalesmen } from "@/lib/me";
 import { useT } from "@/lib/i18n";
-import { money } from "@/lib/imei";
+import { formatDateTime, money } from "@/lib/imei";
 import { exportCsv } from "@/lib/export";
 import { useBusiness } from "@/lib/business";
 import { runOrQueue, useOnline } from "@/lib/offline";
@@ -298,7 +298,7 @@ function DepositHistory({ salesmanId, salesmanName }: { salesmanId: string; sale
       {data.deposits.map((d) => (
         <div key={d.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b py-2 text-sm last:border-0 sm:flex">
           <span className="min-w-0 flex-1 truncate">{money(d.amount)} {d.note && <span className="text-muted-foreground">— {d.note}</span>}</span>
-          <span className="row-start-2 text-xs text-muted-foreground sm:shrink-0">{new Date(d.created_at).toLocaleString()}</span>
+          <span className="row-start-2 text-xs text-muted-foreground sm:shrink-0">{formatDateTime(d.created_at)}</span>
           <Button size="sm" variant="ghost" className="h-7 shrink-0 px-2" title={t("printReceipt")}
             onClick={() => setPrintDoc(
               <MoneyReceiptDoc b={business} appName={t("appName")} receiptId={d.id} docNo={d.receipt_no ?? undefined} date={d.txn_date ?? d.created_at}
