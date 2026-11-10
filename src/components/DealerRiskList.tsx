@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { BrainCircuit, Phone, ShieldBan } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useT } from "@/lib/i18n";
-import { money } from "@/lib/imei";
+import { formatInteger, money } from "@/lib/imei";
 import { rankDealers, type Assessment, type DealerFacts } from "@/lib/dealer-risk";
 import { assessDealerRisk, setDealerBlock } from "@/lib/dealer-risk.functions";
 import { Button } from "@/components/ui/button";
@@ -61,9 +61,9 @@ export function DealerRiskList() {
         <div className="min-w-0">
           <div className="break-words font-semibold">{index + 1}. {d.name} {d.blocked && <span className="text-xs text-destructive">· {t("blocked")}</span>}</div>
           {d.salesman_name && <p className="text-xs text-muted-foreground">{d.salesman_name}</p>}
-          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs"><span>{t("sales")}: {money(d.sales_total)}</span><span>{t("totalCollected")}: {money(d.paid_at_sale + d.collected)}</span><span>{t("totalDue")}: {money(d.total_due)}</span><span className="text-destructive">{t("overdueBalance")}: {money(d.overdue_amount)} · {d.age_days} {t("days")}</span></div>
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs"><span>{t("sales")}: {money(d.sales_total)}</span><span>{t("totalCollected")}: {money(d.paid_at_sale + d.collected)}</span><span>{t("totalDue")}: {money(d.total_due)}</span><span className="text-destructive">{t("overdueBalance")}: {money(d.overdue_amount)} · {formatInteger(d.age_days)} {t("days")}</span></div>
           <p className="mt-2 break-words text-sm">{d.assessment ? (lang === "bn" ? d.assessment.reason_bn : d.assessment.reason_en) : t("noAssessment")}</p>
-          {d.assessment && <><p className="mt-1 break-words text-sm font-medium">{lang === "bn" ? d.assessment.action_bn : d.assessment.action_en}</p><p className="mt-1 text-xs text-muted-foreground">{t("assessedAt")}: {new Date(d.assessment.assessed_at).toLocaleString(lang === "bn" ? "bn-BD" : "en-GB", { timeZone: "Asia/Dhaka" })}</p></>}
+          {d.assessment && <><p className="mt-1 break-words text-sm font-medium">{lang === "bn" ? d.assessment.action_bn : d.assessment.action_en}</p><p className="mt-1 text-xs text-muted-foreground">{t("assessedAt")}: {new Date(d.assessment.assessed_at).toLocaleString("en-GB", { timeZone: "Asia/Dhaka" })}</p></>}
           {(d.unattributed_return_count > 0 || d.linked_return_qty === 0) && <p className="mt-1 text-xs text-muted-foreground">{t("returnHistoryGap")}</p>}
           {d.stale && <p className="mt-1 text-xs text-destructive">{t("staleAssessment")}</p>}
           <div className="mt-3 flex flex-wrap gap-2">
@@ -71,7 +71,7 @@ export function DealerRiskList() {
             <Button size="sm" variant="outline" onClick={() => setSelected(d)}><ShieldBan className="h-4 w-4" />{t(d.blocked ? "unblockDealer" : "blockDealer")}</Button>
           </div>
         </div>
-        <div className="min-w-16 text-right"><div className="text-xs text-muted-foreground">{t("riskScore")}</div><div className={`text-2xl font-bold ${d.assessment && d.assessment.score >= 70 ? "text-destructive" : "text-foreground"}`}>{d.assessment ? `${d.assessment.score}/100` : "—"}</div>{d.assessment && <div className="text-xs">{t(d.assessment.score >= 70 ? "highRisk" : d.assessment.score >= 40 ? "mediumRisk" : "lowRisk")}</div>}</div>
+        <div className="min-w-16 text-right"><div className="text-xs text-muted-foreground">{t("riskScore")}</div><div className={`text-2xl font-bold ${d.assessment && d.assessment.score >= 70 ? "text-destructive" : "text-foreground"}`}>{d.assessment ? `${formatInteger(d.assessment.score)}/100` : "—"}</div>{d.assessment && <div className="text-xs">{t(d.assessment.score >= 70 ? "highRisk" : d.assessment.score >= 40 ? "mediumRisk" : "lowRisk")}</div>}</div>
       </li>)}
     </ol>
     <AlertDialog open={!!selected} onOpenChange={(open) => { if (!open && !saving) setSelected(null); }}>
