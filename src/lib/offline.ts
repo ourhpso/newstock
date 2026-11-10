@@ -231,13 +231,17 @@ export async function runOrQueue(op: QueuedOp, offline: boolean, userId: string 
  * error and stays in the queue without blocking the entries behind it.
  */
 export type ReplayResult = { synced: number; failed: number; firstError: string | null };
-let replayInFlight: Promise<ReplayResult> | null = null;
+const replayInFlight = new Map<string, Promise<ReplayResult>>();
 export function replayQueue(currentUserId: string | null = null): Promise<ReplayResult> {
   // Never replay legacy/unowned queue entries or any entries while signed out.
   if (!currentUserId) return Promise.resolve({ synced: 0, failed: 0, firstError: null });
-  if (replayInFlight) return replayInFlight;
-  replayInFlight = replayQueueOnce(currentUserId).finally(() => { replayInFlight = null; });
-  return replayInFlight;
+  const existing = replayInFlight.get(currentUserId);
+  if (existing) return existing;
+  const pending = replayQueueOnce(currentUserId).finally(() => {
+    if (replayInFlight.get(currentUserId) === pending) replayInFlight.delete(currentUserId);
+  });
+  replayInFlight.set(currentUserId, pending);
+  return pending;
 }
 async function replayQueueOnce(currentUserId: string | null): Promise<ReplayResult> {
   const entries = getQueue(currentUserId);
@@ -249,6 +253,9 @@ async function replayQueueOnce(currentUserId: string | null): Promise<ReplayResu
   for (const entry of entries) {
     // Strict equality: null/legacy entries are quarantined, never sent to Supabase.
     if (!entry.userId || entry.userId !== currentUserId) continue;
+    // A different account may sign in while a replay is in progress.
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (sessionData.session?.user?.id !== currentUserId) break;
     const { error } = await runEntry(entry);
     if (error) {
       failed += 1;
