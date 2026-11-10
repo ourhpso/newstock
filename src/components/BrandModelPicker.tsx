@@ -9,6 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 export type ProductBrand = { id: string; name: string };
 export type ProductModel = { id: string; brand_id: string; name: string };
+function recentIds(key:string):string[]{try{const x=JSON.parse(localStorage.getItem("newstock:recent:"+key)||"[]");return Array.isArray(x)?x.filter((v):v is string=>typeof v==="string"):[]}catch{return []}}
+function rememberId(key:string,id:string){try{localStorage.setItem("newstock:recent:"+key,JSON.stringify([id,...recentIds(key).filter(x=>x!==id)].slice(0,6)))}catch{}}
+function recentFirst<T extends {id:string}>(items:T[],key:string){const ids=recentIds(key);return [...items].sort((a,b)=>{const ai=ids.indexOf(a.id),bi=ids.indexOf(b.id);return (ai<0?999:ai)-(bi<0?999:bi)})}
 
 export function useProductCatalog() {
   const db = supabase as any;
@@ -105,9 +108,9 @@ export function BrandModelProductPicker({
   }
   return (
     <div className="grid gap-2">
-      <Select value={brandId} onValueChange={(v) => { setBrandId(v); setModelId(""); onChange(""); }}>
+      <Select value={brandId} onValueChange={(v) => { setBrandId(v); rememberId("brand",v); setModelId(""); onChange(""); }}>
         <SelectTrigger><SelectValue placeholder="Brand" /></SelectTrigger>
-        <SelectContent>{brands.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}</SelectContent>
+        <SelectContent>{recentFirst(brands,"brand").map((b) => <SelectItem key={b.id} value={b.id}>{recentIds("brand").includes(b.id)?"↻ ":""}{b.name}</SelectItem>)}</SelectContent>
       </Select>
       {allowManage && (
         <div className="flex gap-2">
@@ -115,9 +118,9 @@ export function BrandModelProductPicker({
           <Button type="button" size="sm" variant="outline" onClick={addBrand} disabled={!newBrand.trim()}>+</Button>
         </div>
       )}
-      <Select value={modelId} disabled={!brandId} onValueChange={(v) => { setModelId(v); onChange(""); }}>
+      <Select value={modelId} disabled={!brandId} onValueChange={(v) => { setModelId(v); rememberId("model:"+brandId,v); onChange(""); }}>
         <SelectTrigger><SelectValue placeholder="Model" /></SelectTrigger>
-        <SelectContent>{availableModels.map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}</SelectContent>
+        <SelectContent>{recentFirst(availableModels,"model:"+brandId).map((m) => <SelectItem key={m.id} value={m.id}>{recentIds("model:"+brandId).includes(m.id)?"↻ ":""}{m.name}</SelectItem>)}</SelectContent>
       </Select>
       {allowManage && brandId && (
         <div className="flex gap-2">
@@ -128,7 +131,7 @@ export function BrandModelProductPicker({
       <Select value={value} disabled={!modelId} onValueChange={onChange}>
         <SelectTrigger><SelectValue placeholder={placeholder} /></SelectTrigger>
         <SelectContent>
-          {matchingProducts.map((p) => (
+          {recentFirst(matchingProducts,"product").map((p) => (
             <SelectItem key={p.id} value={p.id}>
               {(p as any).name} {showStock ? `· Stock: ${stockByProductId?.[p.id] ?? (p.is_smartphone ? counts[p.id] ?? 0 : p.stock_qty)}` : ""}
             </SelectItem>
@@ -171,12 +174,12 @@ export function BrandModelFields({
   }
   return (
     <div className="grid gap-2">
-      <Select value={brandId} onValueChange={(v) => { onBrandChange(v); onModelChange(""); }}>
+      <Select value={brandId} onValueChange={(v) => { rememberId("brand",v); onBrandChange(v); onModelChange(""); }}>
         <SelectTrigger><SelectValue placeholder="Brand" /></SelectTrigger>
         <SelectContent>{brands.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}</SelectContent>
       </Select>
       {allowManage && <div className="flex gap-2"><Input value={newBrand} onChange={(e) => setNewBrand(e.target.value)} placeholder="Add another brand" /><Button type="button" size="sm" variant="outline" onClick={addBrand} disabled={!newBrand.trim()}>+</Button></div>}
-      <Select value={modelId} disabled={!brandId} onValueChange={onModelChange}>
+      <Select value={modelId} disabled={!brandId} onValueChange={(v) => { rememberId("model:"+brandId,v); onModelChange(v); }}>
         <SelectTrigger><SelectValue placeholder="Model" /></SelectTrigger>
         <SelectContent>{models.filter((m) => m.brand_id === brandId).map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}</SelectContent>
       </Select>
