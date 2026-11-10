@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -63,10 +63,10 @@ export function BrandModelProductPicker({
   const [newBrand, setNewBrand] = useState("");
   const [newModel, setNewModel] = useState("");
   const [counts, setCounts] = useState<Record<string, number>>({});
-  useMemo(() => {
+  useEffect(() => {
     if (selected) { setBrandId(selected.brand_id ?? ""); setModelId(selected.model_id ?? ""); }
   }, [selected?.id, selected?.brand_id, selected?.model_id]);
-  useMemo(() => {
+  useEffect(() => {
     let active = true;
     db.rpc("distribution_stock_counts").then(({ data, error }: any) => {
       if (active && !error && data && typeof data === "object") setCounts(data as Record<string, number>);
