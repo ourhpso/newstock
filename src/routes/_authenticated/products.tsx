@@ -96,7 +96,7 @@ function Products() {
           return;
         }
       }
-      setF({ name: "", model: "", price: "", is_smartphone: true, stock_qty: "" });
+      setF({ price: "", is_smartphone: true, stock_qty: "" }); setBrandId(""); setModelId("");
       toast.success(t("done"));
       refresh();
     } catch (error) {
@@ -170,8 +170,9 @@ function Products() {
           <div key={p.id} className="rounded-xl border bg-card p-4">
             <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
               <div className="min-w-0 break-words">
-                <div className="font-display text-lg font-bold">{{brands.find((b) => b.id === (p as any).brand_id)?.name ?? ""} {models.find((m) => m.id === (p as any).model_id)?.name ?? p.model ?? p.name} <span className="text-sm font-normal text-muted-foreground">{p.name}</span></div>
+                <div className="font-display text-lg font-bold">{brands.find((b) => b.id === (p as any).brand_id)?.name ?? ""} {models.find((m) => m.id === (p as any).model_id)?.name ?? p.model ?? p.name} <span className="text-sm font-normal text-muted-foreground">{p.name}</span></div>
                 <div className="text-sm text-muted-foreground">{p.is_smartphone ? t("smartphone") : t("buttonPhone")} · {money(p.price)} · {t("costPrice")} {money(p.cost_price)}</div>
+                <ProductCatalogAssignment product={p} onSaved={refresh} />
               </div>
               <div className="text-right"><div className="text-xs text-muted-foreground">{t("stock")}</div><div className="font-display text-2xl font-bold">{p.is_smartphone ? counts[p.id] ?? 0 : p.stock_qty}</div></div>
             </div>
@@ -206,6 +207,30 @@ function Products() {
           <Button disabled={savingImeis} onClick={saveImeis}>{t("save")}</Button>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function ProductCatalogAssignment({ product, onSaved }: { product: any; onSaved: () => void }) {
+  const [brandId, setBrandId] = useState(product.brand_id ?? "");
+  const [modelId, setModelId] = useState(product.model_id ?? "");
+  const [saving, setSaving] = useState(false);
+  async function save() {
+    if (!brandId || !modelId || saving) return;
+    setSaving(true);
+    const { data: brand } = await (supabase as any).from("product_brands").select("name").eq("id", brandId).single();
+    const { data: model } = await (supabase as any).from("product_models").select("name").eq("id", modelId).eq("brand_id", brandId).single();
+    if (!brand || !model) { toast.error("Select a valid brand and model"); setSaving(false); return; }
+    const { error } = await supabase.from("products").update({ brand_id: brandId, model_id: modelId, model: model.name, name: `${brand.name} ${model.name}` }).eq("id", product.id);
+    setSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Product brand/model updated");
+    onSaved();
+  }
+  return (
+    <div className="mt-2 space-y-2">
+      <BrandModelFields brandId={brandId} modelId={modelId} onBrandChange={setBrandId} onModelChange={setModelId} allowManage />
+      <Button type="button" size="sm" variant="outline" disabled={!brandId || !modelId || saving} onClick={save}>Save brand/model</Button>
     </div>
   );
 }
