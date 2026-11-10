@@ -81,7 +81,7 @@ function AdminDash() {
                 <span>{t("sales")}: {money(agg?.salesBy[s.id])}</span>
                 <span>{t("deposited")}: {money(agg?.depBy[s.id])}</span>
                 <span className="font-bold text-accent-foreground">{t("cashInHand")}: {money(cash)}</span>
-              </div>
+              </Link>
             );
           })}
           {salesmen.length === 0 && <p className="text-sm text-muted-foreground">{t("noData")}</p>}
