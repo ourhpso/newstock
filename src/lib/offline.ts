@@ -31,7 +31,26 @@ export type QueueEntry = {
   op: QueuedOp;
 };
 
-const QUEUE_KEY = "offline-queue-v1";
+const LEGACY_QUEUE_KEY = "offline-queue-v1";
+const QUEUE_PREFIX = "offline-queue-v2:";
+const ACTIVE_QUEUE_USER_KEY = "offline-queue-active-user";
+
+function activeQueueUserId(): string | null {
+  if (typeof window === "undefined") return null;
+  try { return window.localStorage.getItem(ACTIVE_QUEUE_USER_KEY); } catch { return null; }
+}
+
+function queueKey(userId: string): string {
+  return QUEUE_PREFIX + userId;
+}
+
+export function setActiveQueueUser(userId: string | null): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (userId) window.localStorage.setItem(ACTIVE_QUEUE_USER_KEY, userId);
+    else window.localStorage.removeItem(ACTIVE_QUEUE_USER_KEY);
+  } catch { /* Storage may be unavailable; callers can pass an explicit user id. */ }
+}
 const listeners = new Set<() => void>();
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -94,40 +113,56 @@ function normalize(raw: RawEntry): { entry: QueueEntry; changed: boolean } {
   };
 }
 
-export function getQueue(): QueueEntry[] {
-  if (typeof window === "undefined") return [];
+export function getQueue(userId: string | null = activeQueueUserId()): QueueEntry[] {
+  if (typeof window === "undefined" || !userId) return [];
   try {
-    const raw = window.localStorage.getItem(QUEUE_KEY);
-    if (!raw) return [];
-    const parts = (JSON.parse(raw) as RawEntry[]).map(normalize);
-    const entries = parts.map((x) => x.entry);
-    // Persist upgrades (notably the freshly assigned UUIDs) immediately, so an
-    // entry's idempotency key is stable across reads, replays and reloads —
-    // regenerating it per read would defeat the server-side dedupe.
-    if (parts.some((x) => x.changed)) {
-      try { window.localStorage.setItem(QUEUE_KEY, JSON.stringify(entries)); } catch { /* storage full/blocked: ids stay stable for this session */ }
+    const key = queueKey(userId);
+    const raw = window.localStorage.getItem(key);
+    const scoped = raw ? (JSON.parse(raw) as RawEntry[]).map(normalize) : [];
+    const entries = scoped.map((x) => x.entry).filter((entry) => entry.userId === userId);
+
+    // Import only explicitly-owned legacy records. Unowned records remain
+    // quarantined in v1; they are never shown or replayed for any account.
+    const legacyRaw = window.localStorage.getItem(LEGACY_QUEUE_KEY);
+    if (legacyRaw) {
+      try {
+        const legacy = (JSON.parse(legacyRaw) as RawEntry[]).map(normalize);
+        const known = new Set(entries.map((entry) => entry.id));
+        for (const part of legacy) {
+          if (part.entry.userId === userId && !known.has(part.entry.id)) {
+            entries.push(part.entry);
+            known.add(part.entry.id);
+          }
+        }
+      } catch { /* Keep malformed legacy data quarantined and untouched. */ }
     }
+
+    // Persist only the current account records; keep the shared legacy queue intact.
+    window.localStorage.setItem(key, JSON.stringify(entries));
     return entries;
   } catch {
     return [];
   }
 }
 
-function saveQueue(entries: QueueEntry[]) {
-  window.localStorage.setItem(QUEUE_KEY, JSON.stringify(entries));
+function saveQueue(entries: QueueEntry[], userId: string | null = activeQueueUserId()) {
+  if (!userId) throw new Error("An authenticated user is required for the offline queue.");
+  const owned = entries.filter((entry) => entry.userId === userId);
+  window.localStorage.setItem(queueKey(userId), JSON.stringify(owned));
   emit();
 }
 
-export function enqueueOp(op: QueuedOp, userId: string | null = null): QueueEntry {
+export function enqueueOp(op: QueuedOp, userId: string | null = activeQueueUserId()): QueueEntry {
+  if (!userId) throw new Error("Sign in is required before saving offline transactions.");
   const entry: QueueEntry = { id: newId(), createdAt: new Date().toISOString(), userId, attempts: 0, lastError: null, op };
-  saveQueue([...getQueue(), entry]);
+  saveQueue([...getQueue(userId), entry], userId);
   return entry;
 }
 
-export function removeQueueEntry(id: string) {
-  saveQueue(getQueue().filter((e) => e.id !== id));
+export function removeQueueEntry(id: string, userId: string | null = activeQueueUserId()) {
+  if (!userId) return;
+  saveQueue(getQueue(userId).filter((entry) => entry.id !== id), userId);
 }
-
 /** True when a failure came from the network being unavailable, not from a server-side rejection. */
 export function isNetworkFailure(error: unknown, offline: boolean): boolean {
   if (offline) return true;
@@ -176,7 +211,7 @@ export async function runOrQueue(op: QueuedOp, offline: boolean, userId: string 
     if (!error) return { s: "done", data };
     if (!isNetworkFailure(error, false)) return { s: "error", error: error.message };
   }
-  saveQueue([...getQueue(), entry]);
+  saveQueue([...getQueue(userId), entry], userId);
   return { s: "queued" };
 }
 
@@ -195,7 +230,7 @@ export function replayQueue(currentUserId: string | null = null): Promise<Replay
   return replayInFlight;
 }
 async function replayQueueOnce(currentUserId: string | null): Promise<ReplayResult> {
-  const entries = getQueue();
+  const entries = getQueue(currentUserId);
   const done = new Set<string>();
   const updates = new Map<string, QueueEntry>();
   let synced = 0;
@@ -214,7 +249,7 @@ async function replayQueueOnce(currentUserId: string | null): Promise<ReplayResu
       done.add(entry.id);
     }
   }
-  saveQueue(getQueue().filter((e) => !done.has(e.id)).map((e) => updates.get(e.id) ?? e));
+  saveQueue(getQueue(currentUserId).filter((e) => !done.has(e.id)).map((e) => updates.get(e.id) ?? e), currentUserId);
   return { synced, failed, firstError };
 }
 
