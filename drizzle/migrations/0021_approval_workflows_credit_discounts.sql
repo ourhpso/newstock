@@ -81,6 +81,18 @@ begin
  insert into public.approval_events(request_id,actor_id,action,reason) values(_request,auth.uid(),'sr_confirmed','Goods received by SR');
 end $$;
 
+create or replace function public.reject_stock_issue_request(_request uuid,_reason text) returns void
+language plpgsql security definer set search_path=public as $
+declare r public.approval_requests%rowtype;
+begin
+ if length(trim(coalesce(_reason,'')))<3 then raise exception 'Rejection reason is required'; end if;
+ select * into r from public.approval_requests where id=_request for update;
+ if not found or r.request_type<>'stock_issue' or r.status<>'pending_sr' then raise exception 'Issue request is not awaiting SR response'; end if;
+ if r.salesman_id<>auth.uid() or not public.has_role(auth.uid(),'salesman') then raise exception 'Assigned SR only'; end if;
+ update public.approval_requests set status='rejected',decided_by=auth.uid(),decided_at=now(),decision_reason=_reason where id=_request;
+ insert into public.approval_events(request_id,actor_id,action,reason) values(_request,auth.uid(),'sr_rejected',_reason);
+end $;
+
 create or replace function public.decide_workflow_request(_request uuid,_approved boolean,_reason text) returns text
 language plpgsql security definer set search_path=public as $$
 declare r public.approval_requests%rowtype; result text;
@@ -230,6 +242,7 @@ revoke all on function public.record_deposit(uuid,numeric,text,text,date,uuid) f
 
 revoke all on function public.submit_workflow_request(text,uuid,jsonb,text,uuid) from public,anon;
 revoke all on function public.confirm_stock_issue_receipt(uuid) from public,anon;
+revoke all on function public.reject_stock_issue_request(uuid,text) from public,anon;
 revoke all on function public.decide_workflow_request(uuid,boolean,text) from public,anon;
 revoke all on function public.finalize_workflow_request(uuid) from public,anon;
 revoke all on function public.request_credit_limit_exception(uuid,jsonb,numeric,text,numeric,date,text) from public,anon;
@@ -237,6 +250,7 @@ revoke all on function public.decide_credit_limit_exception(uuid,boolean,text) f
 revoke all on function public.record_sale_v2(uuid,jsonb,numeric,text,numeric,date,uuid,uuid) from public,anon;
 grant execute on function public.submit_workflow_request(text,uuid,jsonb,text,uuid) to authenticated;
 grant execute on function public.confirm_stock_issue_receipt(uuid) to authenticated;
+grant execute on function public.reject_stock_issue_request(uuid,text) to authenticated;
 grant execute on function public.decide_workflow_request(uuid,boolean,text) to authenticated;
 grant execute on function public.finalize_workflow_request(uuid) to authenticated;
 grant execute on function public.request_credit_limit_exception(uuid,jsonb,numeric,text,numeric,date,text) to authenticated;
