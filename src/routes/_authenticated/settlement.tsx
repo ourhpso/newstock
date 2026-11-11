@@ -9,7 +9,7 @@ import { useT } from "@/lib/i18n";
 import { formatDateTime, money } from "@/lib/imei";
 import { exportCsv } from "@/lib/export";
 import { useBusiness } from "@/lib/business";
-import { runOrQueue, useOnline } from "@/lib/offline";
+import { rpc } from "@/lib/rpc";
 import { rpc, type ProfitSummary } from "@/lib/rpc";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
@@ -23,6 +23,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PageTitle } from "@/components/Stat";
 import { SearchHistoryBar } from "@/components/SearchHistoryBar";
+import { ApprovalInbox } from "@/components/ApprovalInbox";
 
 export const Route = createFileRoute("/_authenticated/settlement")({
   head: () => pageHead("ফেরত ও জমা", "FIROZA ENTERPRISE returns, damage, deposits and settlement reports."),
@@ -42,6 +43,7 @@ function Settlement() {
   return (
     <div className="space-y-6">
       <PageTitle>{t("settlement")}</PageTitle>
+      <ApprovalInbox isAdmin={me.isAdmin} salesmanId={me.id} />
       {me.isAdmin && (
         <div className="space-y-2"><SearchHistoryBar value={salesmanSearch} onChange={setSalesmanSearch} historyKey="settlement-salesman" placeholder="Search salesman..." />
         <Select value={picked} onValueChange={setPicked}>
@@ -53,8 +55,8 @@ function Settlement() {
         <>
           <SalesmanSummary salesmanId={sid} />
           <ReportBox salesmanId={sid} salesmanName={name} />
-          {(me.isAdmin || me.permissions.returns) && <ReturnBox key={"r" + sid} salesmanId={sid} actorId={me.id} />}
-          {me.isAdmin && <DepositBox key={"d" + sid} salesmanId={sid} actorId={me.id} />}
+          {!me.isAdmin && me.permissions.returns && <ReturnBox key={"r" + sid} salesmanId={sid} actorId={me.id} />}
+          {!me.isAdmin && <DepositBox key={"d" + sid} salesmanId={sid} actorId={me.id} />}
           <DepositHistory salesmanId={sid} salesmanName={name} />
           {me.isAdmin && <ExpensesSection />}
           {me.isAdmin && <ProfitSection />}
@@ -118,20 +120,18 @@ function ReturnBox({ salesmanId, actorId }: { salesmanId: string; actorId: strin
   const [date, setDate] = useState(todayDhaka());
   const [busy, setBusy] = useState(false);
   const [lastBatch, setLastBatch] = useState<string | null>(null);
-  const online = useOnline();
   const held = summary?.products.filter((p) => p.hand > 0).map((p) => p.product_id) ?? [];
   async function submit() {
     if (busy) return;
     setBusy(true);
     try {
-      const result = await runOrQueue(
-        { kind: "return_stock", payload: { _salesman: salesmanId, _items: cart.map((l) => ({ product_id: l.product_id, qty: l.qty, imeis: l.imeis, damaged: !!l.damaged })), _date: date || null } },
-        !online,
-        actorId,
-      );
-      if (result.s === "error") { navigator.vibrate?.(300); toast.error(result.error); return; }
-      toast.success(t(result.s === "queued" ? "savedOffline" : "done"));
-      if (result.s === "done" && typeof result.data === "string") setLastBatch(result.data);
+      const result = await rpc<string>("submit_workflow_request", {
+        _kind: "return", _salesman: salesmanId,
+        _payload: { items: cart.map((l) => ({ product_id: l.product_id, qty: l.qty, imeis: l.imeis, damaged: !!l.damaged })), date: date || null },
+        _reason: "SR submitted unsold stock return for Admin approval", _op: crypto.randomUUID(),
+      });
+      if (result.error) { navigator.vibrate?.(300); toast.error(result.error.message); return; }
+      toast.success("ফেরত পণ্যের অনুরোধ Admin-এর অনুমোদনের জন্য পাঠানো হয়েছে।");
       setCart([]);
       qc.invalidateQueries();
     } finally { setBusy(false); }
@@ -169,12 +169,15 @@ function DepositBox({ salesmanId, actorId }: { salesmanId: string; actorId: stri
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (busy || n <= 0) return;
-    if (online && data && n > cash) { toast.error(`${t("cashInHand")}: ${money(cash)}`); return; }
     setBusy(true);
     try {
-      const result = await runOrQueue({ kind: "deposit", payload: { _salesman: salesmanId, _amount: n, _method: method, _note: note || null, _date: date || null } }, !online, actorId);
-      if (result.s === "error") { toast.error(result.error); return; }
-      setAmt(""); setNote(""); toast.success(t(result.s === "queued" ? "savedOffline" : "done"));
+      const result = await rpc<string>("submit_workflow_request", {
+        _kind: "deposit", _salesman: salesmanId,
+        _payload: { amount: n, method, note: note || null, date: date || null },
+        _reason: note.trim() || "SR submitted cash handover for Admin approval", _op: crypto.randomUUID(),
+      });
+      if (result.error) { toast.error(result.error.message); return; }
+      setAmt(""); setNote(""); toast.success("নগদ জমার অনুরোধ Admin-এর অনুমোদনের জন্য পাঠানো হয়েছে।");
       qc.invalidateQueries();
     } finally { setBusy(false); }
   }
