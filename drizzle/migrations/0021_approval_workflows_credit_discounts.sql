@@ -209,11 +209,9 @@ begin
   if not found then raise exception 'Retailer not assigned to this SR'; end if;
   due:=public.retailer_due(_retailer); due_after:=due+gross-disc-coalesce(_paid,0);
   if lim is null or due_after-lim>e.over_limit_amount then raise exception 'Retailer due changed; request a new approval'; end if;
-  perform set_config('app.via_rpc','on',true);
-  update public.retailers set credit_limit=due_after where id=_retailer;
+  perform set_config('app.credit_exception_id',_exception_id::text,true);
   sid:=public.record_sale(_retailer,_items,_paid,disc,_date,_op);
-  update public.retailers set credit_limit=lim where id=_retailer;
-  update public.credit_limit_exceptions set status='consumed',consumed_at=now() where id=_exception_id;
+  perform set_config('app.credit_exception_id','',true);
   return sid;
  end if;
  return public.record_sale(_retailer,_items,_paid,disc,_date,_op);
@@ -274,3 +272,75 @@ end $$;
 drop trigger if exists credit_limit_exception_audit on public.credit_limit_exceptions;
 create trigger credit_limit_exception_audit after insert or update of status on public.credit_limit_exceptions
  for each row execute function public.log_credit_limit_exception_event();
+
+-- Replace the legacy sale function with the same stock/IMEI validation plus a
+-- narrowly scoped exception check. Only record_sale_v2 sets this transaction-local
+-- value after checking the exact approved cart; direct record_sale calls stay capped.
+create or replace function public.record_sale(
+ _retailer uuid,_items jsonb,_paid numeric,_discount numeric,_date date,_op uuid
+) returns uuid language plpgsql security definer set search_path=public as $$
+declare it jsonb; p record; im text; n int; sid uuid; tot numeric:=0; me uuid:=auth.uid();
+ price numeric; disc numeric:=coalesce(_discount,0); lim numeric; due_after numeric; ucost numeric;
+ exception_text text; ex public.credit_limit_exceptions%rowtype; expected_disc numeric;
+begin
+ perform set_config('app.via_rpc','on',true);
+ if _op is not null then select id into sid from public.sales where client_op_id=_op; if sid is not null then return sid; end if; end if;
+ if disc<0 or coalesce(_paid,0)<0 then raise exception 'Invalid discount or paid amount'; end if;
+ select credit_limit into lim from public.retailers where id=_retailer and salesman_id=me;
+ if not found then raise exception 'retailer not yours'; end if;
+ insert into public.sales(salesman_id,retailer_id,total,paid,discount,invoice_no,client_op_id,txn_date)
+ values(me,_retailer,0,coalesce(_paid,0),disc,public.next_doc_no('invoice'),_op,coalesce(_date,(now() at time zone 'Asia/Dhaka')::date)) returning id into sid;
+ for it in select * from jsonb_array_elements(_items) loop
+  select * into p from public.products where id=(it->>'product_id')::uuid;
+  if p.id is null then raise exception 'Product not found'; end if;
+  price:=coalesce((it->>'unit_price')::numeric,p.price);
+  if price<=0 then raise exception 'Unit price must be positive for %',p.name; end if;
+  if p.is_smartphone then
+   for im in select jsonb_array_elements_text(it->'imeis') loop
+    update public.imei_units set status='sold',retailer_id=_retailer
+     where imei=im and product_id=p.id and status='with_salesman' and salesman_id=me;
+    get diagnostics n=row_count;
+    if n=0 then raise exception 'IMEI % not with you',im; end if;
+    select cost_price into ucost from public.imei_units where imei=im;
+    insert into public.stock_movements(salesman_id,product_id,kind,qty,unit_price,cost_price,imei,sale_id,retailer_id,txn_date)
+    values(me,p.id,'sale',1,price,coalesce(ucost,0),im,sid,_retailer,coalesce(_date,(now() at time zone 'Asia/Dhaka')::date));
+    tot:=tot+price;
+   end loop;
+  else
+   n:=(it->>'qty')::int;
+   if n<=0 or public.holding_qty(me,p.id)<n then raise exception 'Not enough % in hand',p.name; end if;
+   insert into public.stock_movements(salesman_id,product_id,kind,qty,unit_price,cost_price,sale_id,retailer_id,txn_date)
+   values(me,p.id,'sale',n,price,p.cost_price,sid,_retailer,coalesce(_date,(now() at time zone 'Asia/Dhaka')::date));
+   tot:=tot+price*n;
+  end if;
+ end loop;
+ if disc>tot then raise exception 'Discount exceeds sale total'; end if;
+ tot:=tot-disc;
+ if coalesce(_paid,0)>tot then raise exception 'paid more than total'; end if;
+ if lim is not null then
+  due_after:=public.retailer_due(_retailer)+(tot-coalesce(_paid,0));
+  if due_after>lim then
+   exception_text:=nullif(current_setting('app.credit_exception_id',true),'');
+   if exception_text is null then raise exception 'Credit limit exceeded for this retailer'; end if;
+   select * into ex from public.credit_limit_exceptions
+    where id=exception_text::uuid and retailer_id=_retailer and salesman_id=me
+      and status='approved' and consumed_at is null for update;
+   if not found then raise exception 'Approved credit exception not found or already used'; end if;
+   if ex.payload->'items'<>_items or (ex.payload->>'paid')::numeric<>coalesce(_paid,0)
+      or nullif(ex.payload->>'date','')::date is distinct from _date then
+     raise exception 'Sale details differ from approved request';
+   end if;
+   if ex.payload->>'discount_mode'='percent' then
+    expected_disc:=round((tot+disc)*(ex.payload->>'discount_value')::numeric/100,2);
+   elsif ex.payload->>'discount_mode'='fixed' then
+    expected_disc:=(ex.payload->>'discount_value')::numeric;
+   else raise exception 'Invalid approved discount type'; end if;
+   if abs(expected_disc-disc)>0.01 or due_after-lim>ex.over_limit_amount then
+    raise exception 'Sale exceeds approved credit exception';
+   end if;
+   update public.credit_limit_exceptions set status='consumed',consumed_at=now() where id=ex.id;
+  end if;
+ end if;
+ update public.sales set total=tot where id=sid;
+ return sid;
+end $$;
