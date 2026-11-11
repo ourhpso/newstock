@@ -11,6 +11,10 @@ const BARCODE_FORMATS = [
   "Code128", "Code39", "EAN13", "EAN8", "ITF", "UPCA", "UPCE",
   "DataMatrix", "QRCode", "PDF417",
 ] as const;
+const NATIVE_FORMATS = [
+  "code_128", "code_39", "ean_13", "ean_8", "itf",
+  "upc_a", "upc_e", "data_matrix", "qr_code", "pdf417",
+] as const;
 
 type WasmReader = typeof import("zxing-wasm/reader");
 type NativeBarcode = { rawValue?: string };
@@ -61,7 +65,7 @@ export function ImeiScanner({ validate }: { validate: (imei: string) => Promise<
   const [starting, setStarting] = useState(false);
   const [torchAvailable, setTorchAvailable] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
-  const [zoom, setZoom] = useState(1);
+  const [zoom, setZoom] = useState(1);\n  const [zoomMax, setZoomMax] = useState(4);
   const validateRef = useRef(validate);
   validateRef.current = validate;
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -219,13 +223,14 @@ export function ImeiScanner({ validate }: { validate: (imei: string) => Promise<
         setTorchAvailable(Boolean(capabilities.torch));
         const advanced: AdvancedCameraConstraint[] = [];
         if (capabilities.focusMode?.includes("continuous")) advanced.push({ focusMode: "continuous" });
-        if (capabilities.focusMode?.includes("single-shot")) advanced.push({ focusMode: "single-shot" });
+        else if (capabilities.focusMode?.includes("single-shot")) advanced.push({ focusMode: "single-shot" });
         if (advanced.length) {
           try { await track.applyConstraints({ advanced }); } catch { /* Optional camera capability. */ }
         }
         if (capabilities.zoom) {
           const initialZoom = Math.max(capabilities.zoom.min, Math.min(1, capabilities.zoom.max));
           setZoom(initialZoom);
+          setZoomMax(capabilities.zoom.max);
         }
       }
       const video = videoRef.current;
@@ -238,8 +243,8 @@ export function ImeiScanner({ validate }: { validate: (imei: string) => Promise<
       const Detector = (window as Window & { BarcodeDetector?: NativeDetectorConstructor }).BarcodeDetector;
       if (Detector) {
         try {
-          const supported = Detector.getSupportedFormats ? await Detector.getSupportedFormats() : [...BARCODE_FORMATS];
-          const nativeFormats = [...BARCODE_FORMATS].filter((format) => supported.includes(format));
+          const supported = Detector.getSupportedFormats ? await Detector.getSupportedFormats() : [...NATIVE_FORMATS];
+          const nativeFormats = [...NATIVE_FORMATS].filter((format) => supported.includes(format));
           if (nativeFormats.length) detectorRef.current = new Detector({ formats: nativeFormats });
         } catch {
           detectorRef.current = null;
