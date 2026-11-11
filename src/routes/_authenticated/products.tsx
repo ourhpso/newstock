@@ -304,9 +304,13 @@ function Products() {
           <Label>{t("imeiList")}</Label>
           <p className="text-xs text-muted-foreground">বারকোড স্ক্যান করুন অথবা IMEI হাতে লিখুন। প্রতিটি IMEI ১৫ সংখ্যার ও checksum-valid হতে হবে।</p>
           <ImeiScanner validate={async (imei) => {
-            const current = imeiText.split(/[\s,]+/).map((value) => value.trim()).filter(Boolean);
+            const current = imeiTextRef.current.split(/[\s,]+/).map((value) => value.trim()).filter(Boolean);
             if (current.includes(imei)) return { ok: false, message: t("duplicateImei") };
-            setImeiText((value) => value.trim() ? `${value.trim()}\n${imei}` : imei);
+            setImeiText((value) => {
+              const next = value.trim() ? value.trim() + "\n" + imei : imei;
+              imeiTextRef.current = next;
+              return next;
+            });
             return { ok: true, message: "Added to product IMEI list" };
           }} />
           <Textarea rows={6} value={imeiText} onChange={(e) => setImeiText(e.target.value)} placeholder="এক লাইনে একটি IMEI অথবা কমা দিয়ে আলাদা করুন" />
