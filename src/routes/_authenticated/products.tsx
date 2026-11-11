@@ -179,7 +179,9 @@ function Products() {
       const XLSX = await import("xlsx");
       const data = await file.arrayBuffer();
       const book = XLSX.read(data, { type: "array" });
-      const sheet = book.Sheets[book.SheetNames[0]];
+      const firstSheet = book.SheetNames[0];
+      if (!firstSheet || !book.Sheets[firstSheet]) throw new Error("The workbook has no readable first worksheet");
+      const sheet = book.Sheets[firstSheet];
       const raw = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
       const rows = raw.map((r, index) => {
         const get = (...keys: string[]) => {
@@ -202,7 +204,7 @@ function Products() {
         else if (!Number.isFinite(price) || price < 0) error = "Invalid price";
         else if (!Number.isInteger(stock_qty) || stock_qty < 0) error = "Stock must be a whole number ≥ 0";
         else if (is_smartphone && stock_qty > 0) error = "Smartphone stock must be imported via IMEI purchase";
-        return { brand, model, price, is_smartphone, stock_qty, brand_id: b?.id ?? "", model_id: m?.id ?? "", error: error || undefined, row: index + 2 };
+        return { brand, model, price, is_smartphone, stock_qty, brand_id: b?.id ?? "", model_id: m?.id ?? "", ...(error ? { error } : {}), row: index + 2 };
       }).filter((r) => r.brand || r.model || r.price);
       setImportRows(rows);
       setImportOpen(true);
