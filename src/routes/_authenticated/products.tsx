@@ -18,6 +18,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { PageTitle } from "@/components/Stat";
 import { useQuery } from "@tanstack/react-query";
 import { RecordActions } from "@/components/RecordActions";
+import { ImeiScanner } from "@/components/ImeiScanner";
 import { rpc } from "@/lib/rpc";
 import { BrandModelFields, useProductCatalog } from "@/components/BrandModelPicker";
 import { SearchHistoryBar } from "@/components/SearchHistoryBar";
@@ -299,7 +300,14 @@ function Products() {
         <DialogContent>
           <DialogHeader><DialogTitle>{t("addImei")}</DialogTitle></DialogHeader>
           <Label>{t("imeiList")}</Label>
-          <Textarea rows={8} value={imeiText} onChange={(e) => setImeiText(e.target.value)} />
+          <p className="text-xs text-muted-foreground">বারকোড স্ক্যান করুন অথবা IMEI হাতে লিখুন। প্রতিটি IMEI ১৫ সংখ্যার ও checksum-valid হতে হবে।</p>
+          <ImeiScanner validate={async (imei) => {
+            const current = imeiText.split(/[\\s,]+/).map((value) => value.trim()).filter(Boolean);
+            if (current.includes(imei)) return { ok: false, message: t("duplicateImei") };
+            setImeiText((value) => value.trim() ? `${value.trim()}\\n${imei}` : imei);
+            return { ok: true, message: "Added to product IMEI list" };
+          }} />
+          <Textarea rows={6} value={imeiText} onChange={(e) => setImeiText(e.target.value)} placeholder="এক লাইনে একটি IMEI অথবা কমা দিয়ে আলাদা করুন" />
           <div className="space-y-1"><Label>{t("costPrice")}</Label><Input type="number" min={0.01} step="0.01" value={imeiCost} onChange={(e) => setImeiCost(e.target.value)} /></div>
           <Button disabled={savingImeis} onClick={saveImeis}>{t("save")}</Button>
         </DialogContent>
