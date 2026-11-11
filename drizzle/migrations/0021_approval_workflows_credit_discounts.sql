@@ -45,7 +45,7 @@ create or replace function public.submit_workflow_request(_kind text,_salesman u
 returns uuid language plpgsql security definer set search_path=public as $$
 declare rid uuid; st text;
 begin
- if auth.uid() is null then raise exception 'Authentication required'; end if;
+ if auth.uid() is null or not public.user_is_active(auth.uid()) then raise exception 'Active authenticated account required'; end if;
  if _kind not in ('issue','return','deposit') then raise exception 'Unsupported request'; end if;
  if _kind='issue' then
   if not public.has_role(auth.uid(),'admin') then raise exception 'Admin only'; end if;
@@ -54,6 +54,7 @@ begin
   st:='pending_sr';
  else
   if _salesman<>auth.uid() or not public.has_role(auth.uid(),'salesman') then raise exception 'Only assigned SR can submit'; end if;
+  if _kind='return' and not public.user_can(auth.uid(),'returns') then raise exception 'Return permission denied'; end if;
   if _kind='return' and (jsonb_typeof(_payload->'items')<>'array' or jsonb_array_length(_payload->'items')=0) then raise exception 'Return items required'; end if;
   if _kind='deposit' and coalesce((_payload->>'amount')::numeric,0)<=0 then raise exception 'Positive amount required'; end if;
   st:='pending_admin';
@@ -145,7 +146,7 @@ create or replace function public.request_credit_limit_exception(
 ) returns uuid language plpgsql security definer set search_path=public as $$
 declare r public.retailers%rowtype; it jsonb; p public.products%rowtype; gross numeric:=0; disc numeric:=0; due numeric; due_after numeric; eid uuid;
 begin
- if auth.uid() is null or length(trim(coalesce(_reason,'')))<3 then raise exception 'A request reason is required'; end if;
+ if auth.uid() is null or not public.user_is_active(auth.uid()) or not public.user_can(auth.uid(),'sales') or length(trim(coalesce(_reason,'')))<3 then raise exception 'Active sales permission and a request reason are required'; end if;
  select * into r from public.retailers where id=_retailer and salesman_id=auth.uid() for update;
  if not found then raise exception 'Retailer not assigned to this SR'; end if;
  if jsonb_typeof(_items)<>'array' or jsonb_array_length(_items)=0 then raise exception 'Sale items required'; end if;
