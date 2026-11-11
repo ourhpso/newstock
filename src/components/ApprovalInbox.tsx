@@ -68,7 +68,7 @@ export function ApprovalInbox({ isAdmin, salesmanId }: { isAdmin: boolean; sales
         <div className="text-xs text-muted-foreground">SR: {r.salesman_id} · {new Date(r.created_at).toLocaleString("en-GB")} · {detail}</div>
         {r.reason && <p className="text-sm">কারণ: {r.reason}</p>}
         {r.decision_reason && <p className="text-sm">সিদ্ধান্তের কারণ: {r.decision_reason}</p>}{r.result_ref && <p className="text-xs text-muted-foreground">Final document: {r.result_ref}</p>}
-        {(canDecide || canFinalize || canConfirm) && <Input value={decisionReason} onChange={(e) => setDecisionReason(e.target.value)} placeholder="সিদ্ধান্তের কারণ (কমপক্ষে ৩ অক্ষর)" />}
+        {(canDecide || canConfirm) && <Input value={decisionReason} onChange={(e) => setDecisionReason(e.target.value)} placeholder="সিদ্ধান্তের কারণ (কমপক্ষে ৩ অক্ষর)" />}
         <div className="flex flex-wrap gap-2">
           {canConfirm && <><Button size="sm" disabled={busyId === r.id} onClick={() => act(r.id,"confirm")}>{r.request_type === "stock_issue" ? "পণ্য গ্রহণ নিশ্চিত" : r.request_type === "stock_return" ? "ফেরত পণ্য হস্তান্তর নিশ্চিত" : "নগদ হস্তান্তর নিশ্চিত"}</Button><Button size="sm" variant="destructive" disabled={busyId === r.id || decisionReason.trim().length < 3} onClick={() => act(r.id,"reject_issue")}>অনুরোধ প্রত্যাখ্যান</Button></>}
           {canFinalize && <Button size="sm" disabled={busyId === r.id} onClick={() => act(r.id,"finalize")}>{r.request_type === "stock_issue" ? "স্টক চূড়ান্ত করুন" : r.request_type === "stock_return" ? "ফেরত স্টক চূড়ান্ত করুন" : "নগদ জমা চূড়ান্ত করুন"}</Button>}
