@@ -10,6 +10,7 @@ import { formatDateTime, money } from "@/lib/imei";
 import { exportCsv } from "@/lib/export";
 import { useBusiness } from "@/lib/business";
 import { rpc, type ProfitSummary } from "@/lib/rpc";
+import { runOrQueue, useOnline } from "@/lib/offline";
 import { supabase } from "@/integrations/supabase/client";
 import { Label } from "@/components/ui/label";
 import { MoneyReceiptDoc, PrintSheet, SettlementDoc } from "@/components/PrintDocs";
@@ -54,7 +55,7 @@ function Settlement() {
           <SalesmanSummary salesmanId={sid} />
           <ReportBox salesmanId={sid} salesmanName={name} />
           {!me.isAdmin && me.permissions.returns && <ReturnBox key={"r" + sid} salesmanId={sid} />}
-          {!me.isAdmin && <DepositBox key={"d" + sid} salesmanId={sid} actorId={me.id} />}
+          {!me.isAdmin && <DepositBox key={"d" + sid} salesmanId={sid} />}
           <DepositHistory salesmanId={sid} salesmanName={name} />
           {me.isAdmin && <ExpensesSection />}
           {me.isAdmin && <ProfitSection />}
@@ -113,23 +114,19 @@ const todayDhaka = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asi
 function ReturnBox({ salesmanId }: { salesmanId: string }) {
   const { t } = useT();
   const qc = useQueryClient();
+  const online = useOnline();
   const { data: summary } = useSalesmanSummary(salesmanId);
   const [cart, setCart] = useState<CartLine[]>([]);
   const [date, setDate] = useState(todayDhaka());
   const [busy, setBusy] = useState(false);
-  const [lastBatch, setLastBatch] = useState<string | null>(null);
   const held = summary?.products.filter((p) => p.hand > 0).map((p) => p.product_id) ?? [];
   async function submit() {
     if (busy) return;
     setBusy(true);
     try {
-      const result = await rpc<string>("submit_workflow_request", {
-        _kind: "return", _salesman: salesmanId,
-        _payload: { items: cart.map((l) => ({ product_id: l.product_id, qty: l.qty, imeis: l.imeis, damaged: !!l.damaged })), date: date || null },
-        _reason: "SR submitted unsold stock return for Admin approval", _op: crypto.randomUUID(),
-      });
-      if (result.error) { navigator.vibrate?.(300); toast.error(result.error.message); return; }
-      toast.success("ফেরত পণ্যের অনুরোধ Admin-এর অনুমোদনের জন্য পাঠানো হয়েছে।");
+      const result = await runOrQueue({ kind: "return_stock", payload: { _salesman: salesmanId, _items: cart.map((l) => ({ product_id: l.product_id, qty: l.qty, imeis: l.imeis, damaged: !!l.damaged })), _date: date || null } }, !online, salesmanId);
+      if (result.s === "error") { navigator.vibrate?.(300); toast.error(result.error); return; }
+      toast.success(result.s === "queued" ? t("savedOffline") : "ফেরত পণ্যের অনুরোধ Admin-এর অনুমোদনের জন্য পাঠানো হয়েছে।");
       setCart([]);
       qc.invalidateQueries();
     } finally { setBusy(false); }
@@ -143,7 +140,6 @@ function ReturnBox({ salesmanId }: { salesmanId: string }) {
       {summary && summary.handImeis.length > 0 && (
         <p className="break-words text-xs text-muted-foreground">{t("inHand")} IMEI: {summary.handImeis.map((i) => i.imei).join(", ")}</p>
       )}
-      {lastBatch && <p className="text-sm font-semibold">{t("challan")}: {lastBatch}</p>}
       <CartBuilder mode="return" salesmanId={salesmanId} cart={cart} setCart={setCart} onlyProductIds={held} />
       <Button className="w-full" disabled={!cart.length || busy} onClick={submit}>{t("confirm")}</Button>
     </section>
@@ -167,15 +163,12 @@ function DepositBox({ salesmanId }: { salesmanId: string }) {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (busy || n <= 0) return;
+    if (n > cash) { toast.error(`${t("cashInHand")}: ${money(cash)}`); return; }
     setBusy(true);
     try {
-      const result = await rpc<string>("submit_workflow_request", {
-        _kind: "deposit", _salesman: salesmanId,
-        _payload: { amount: n, method, note: note || null, date: date || null },
-        _reason: note.trim() || "SR submitted cash handover for Admin approval", _op: crypto.randomUUID(),
-      });
-      if (result.error) { toast.error(result.error.message); return; }
-      setAmt(""); setNote(""); toast.success("নগদ জমার অনুরোধ Admin-এর অনুমোদনের জন্য পাঠানো হয়েছে।");
+      const result = await runOrQueue({ kind: "deposit", payload: { _salesman: salesmanId, _amount: n, _method: method, _note: note || null, _date: date || null } }, !online, salesmanId);
+      if (result.s === "error") { toast.error(result.error); return; }
+      setAmt(""); setNote(""); toast.success(result.s === "queued" ? t("savedOffline") : "নগদ জমার অনুরোধ Admin-এর অনুমোদনের জন্য পাঠানো হয়েছে।");
       qc.invalidateQueries();
     } finally { setBusy(false); }
   }
