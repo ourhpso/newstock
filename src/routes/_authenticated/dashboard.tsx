@@ -11,6 +11,7 @@ import { DashboardKpis } from "@/components/DashboardKpis";
 import { DealerRiskList } from "@/components/DealerRiskList";
 import { useDashboardInsights } from "@/lib/dashboard";
 import { SalesmanSummary } from "@/components/SalesmanSummary";
+import { SrLocationShare } from "@/components/SrLocationShare";
 import { Button } from "@/components/ui/button";
 import { FileSpreadsheet } from "lucide-react";
 import { exportCsv } from "@/lib/export";
@@ -33,6 +34,7 @@ function Dashboard() {
         <PageTitle>{t("dashboard")}</PageTitle>
         <DashboardAlerts data={insights.data} isAdmin={false} />
         <DashboardKpis data={insights.data} isAdmin={false} />
+        <SrLocationShare salesmanId={me.id} />
         <SalesmanSummary salesmanId={me.id} />
       </div>
     );

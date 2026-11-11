@@ -19,6 +19,7 @@ import { Route as AuthenticatedRetailersRouteImport } from './routes/_authentica
 import { Route as AuthenticatedSalesRouteImport } from './routes/_authenticated/sales'
 import { Route as AuthenticatedSalesmenRouteImport } from './routes/_authenticated/salesmen'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as AuthenticatedSrLocationsRouteImport } from './routes/_authenticated/sr-locations'
 import { Route as AuthenticatedSettlementRouteImport } from './routes/_authenticated/settlement'
 import { Route as AuthenticatedStockIssueRouteImport } from './routes/_authenticated/stock-issue'
 import { Route as AuthenticatedUserAccessRouteImport } from './routes/_authenticated/user-access'
@@ -67,6 +68,11 @@ const AuthenticatedSalesmenRoute = AuthenticatedSalesmenRouteImport.update({
   path: '/salesmen',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedSrLocationsRoute = AuthenticatedSrLocationsRouteImport.update({
+  id: '/sr-locations',
+  path: '/sr-locations',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -97,6 +103,7 @@ export interface FileRoutesByFullPath {
   '/retailers': typeof AuthenticatedRetailersRoute
   '/sales': typeof AuthenticatedSalesRoute
   '/salesmen': typeof AuthenticatedSalesmenRoute
+  '/sr-locations': typeof AuthenticatedSrLocationsRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/settlement': typeof AuthenticatedSettlementRoute
   '/stock-issue': typeof AuthenticatedStockIssueRoute
@@ -111,6 +118,7 @@ export interface FileRoutesByTo {
   '/retailers': typeof AuthenticatedRetailersRoute
   '/sales': typeof AuthenticatedSalesRoute
   '/salesmen': typeof AuthenticatedSalesmenRoute
+  '/sr-locations': typeof AuthenticatedSrLocationsRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/settlement': typeof AuthenticatedSettlementRoute
   '/stock-issue': typeof AuthenticatedStockIssueRoute
@@ -127,6 +135,7 @@ export interface FileRoutesById {
   '/_authenticated/retailers': typeof AuthenticatedRetailersRoute
   '/_authenticated/sales': typeof AuthenticatedSalesRoute
   '/_authenticated/salesmen': typeof AuthenticatedSalesmenRoute
+  '/_authenticated/sr-locations': typeof AuthenticatedSrLocationsRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/settlement': typeof AuthenticatedSettlementRoute
   '/_authenticated/stock-issue': typeof AuthenticatedStockIssueRoute
@@ -143,6 +152,7 @@ export interface FileRouteTypes {
     | '/retailers'
     | '/sales'
     | '/salesmen'
+    | '/sr-locations'
     | '/settings'
     | '/settlement'
     | '/stock-issue'
@@ -249,6 +259,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSalesmenRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/sr-locations': {
+      id: '/_authenticated/sr-locations'
+      path: '/sr-locations'
+      fullPath: '/sr-locations'
+      preLoaderRoute: typeof AuthenticatedSrLocationsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/settings': {
       id: '/_authenticated/settings'
       path: '/settings'
@@ -287,6 +304,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedRetailersRoute: typeof AuthenticatedRetailersRoute
   AuthenticatedSalesRoute: typeof AuthenticatedSalesRoute
   AuthenticatedSalesmenRoute: typeof AuthenticatedSalesmenRoute
+  AuthenticatedSrLocationsRoute: typeof AuthenticatedSrLocationsRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedSettlementRoute: typeof AuthenticatedSettlementRoute
   AuthenticatedStockIssueRoute: typeof AuthenticatedStockIssueRoute
@@ -300,6 +318,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedRetailersRoute: AuthenticatedRetailersRoute,
   AuthenticatedSalesRoute: AuthenticatedSalesRoute,
   AuthenticatedSalesmenRoute: AuthenticatedSalesmenRoute,
+  AuthenticatedSrLocationsRoute: AuthenticatedSrLocationsRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedSettlementRoute: AuthenticatedSettlementRoute,
   AuthenticatedStockIssueRoute: AuthenticatedStockIssueRoute,

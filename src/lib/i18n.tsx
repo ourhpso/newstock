@@ -50,6 +50,7 @@ const dict = {
   more: ["আরও", "More"],
   settings: ["সেটিংস", "Settings"],
   userAccess: ["ব্যবহারকারী ও অনুমতি", "Users & Access"],
+  srLocations: ["SR লোকেশন", "SR Locations"],
   role: ["ভূমিকা", "Role"],
   ownerRole: ["মালিক", "Owner"],
   salesmanRole: ["সেলসম্যান / SR", "Salesman / SR"],

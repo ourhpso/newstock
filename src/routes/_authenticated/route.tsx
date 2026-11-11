@@ -4,7 +4,7 @@ import { useMe } from "@/lib/me";
 import { useT, type Key } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { useQueryClient } from "@tanstack/react-query";
-import { LayoutDashboard, Menu, Package, Users, PackageOpen, HandCoins, ShoppingCart, Store, Settings2, ShieldCheck, FileBarChart, type LucideIcon } from "lucide-react";
+import { LayoutDashboard, Menu, Package, Users, PackageOpen, HandCoins, ShoppingCart, Store, Settings2, ShieldCheck, FileBarChart, MapPin, type LucideIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useBusiness } from "@/lib/business";
 import { useOnline, usePendingSyncCount } from "@/lib/offline";
@@ -28,6 +28,7 @@ const navIcon: Partial<Record<Key, LucideIcon>> = {
   retailers: Store,
   settings: Settings2,
   userAccess: ShieldCheck,
+  srLocations: MapPin,
   reports: FileBarChart,
 };
 
@@ -46,6 +47,7 @@ const adminNav: { to: string; k: Key }[] = [
   { to: "/products", k: "products" },
   { to: "/purchases", k: "purchases" },
   { to: "/salesmen", k: "salesmen" },
+  { to: "/sr-locations", k: "srLocations" },
   { to: "/stock-issue", k: "stockIssue" },
   { to: "/settlement", k: "settlement" },
   { to: "/reports", k: "reports" },
@@ -96,7 +98,7 @@ function Layout() {
       </header>
       <DesktopSidebar nav={nav} />
       <main className="mx-auto min-w-0 max-w-6xl px-3 py-5 sm:px-4">{me?.active ? <Outlet /> : me ? <p className="text-destructive">{t("accountDisabled")}</p> : null}</main>
-      <MobileNav nav={nav} />
+      <MobileNav nav={nav} isSalesman={!me?.isAdmin} />
     </div>
   );
 }
@@ -163,7 +165,7 @@ function DesktopSidebar({ nav }: { nav: { to: string; k: Key }[] }) {
  * pages + a "More" button) and an auto-hiding side drawer that lists every
  * page. The drawer closes itself as soon as a page is opened.
  */
-function MobileNav({ nav }: { nav: { to: string; k: Key }[] }) {
+function MobileNav({ nav, isSalesman }: { nav: { to: string; k: Key }[]; isSalesman: boolean }) {
   const { t } = useT();
   const [open, setOpen] = useState(false);
   const currentPath = useRouterState({ select: (r) => r.location.pathname });
@@ -171,10 +173,10 @@ function MobileNav({ nav }: { nav: { to: string; k: Key }[] }) {
   useEffect(() => {
     setOpen(false);
   }, [currentPath]);
-  const bar = nav.slice(0, 3);
+  const bar = isSalesman ? nav.slice(0, 2) : nav.slice(0, 3);
   return (
     <>
-      <nav className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-4 border-t bg-card pb-[env(safe-area-inset-bottom)] shadow-sm md:hidden">
+      <nav className={`fixed inset-x-0 bottom-0 z-20 grid border-t bg-card pb-[env(safe-area-inset-bottom)] shadow-sm md:hidden ${isSalesman ? "grid-cols-3" : "grid-cols-4"}`}>
         {bar.map((n) => {
           const Icon = navIcon[n.k] ?? LayoutDashboard;
           return (
@@ -200,14 +202,14 @@ function MobileNav({ nav }: { nav: { to: string; k: Key }[] }) {
               <span className="break-words text-center leading-tight">{t("more")}</span>
             </button>
           </SheetTrigger>
-          <SheetContent side="left" className="w-64 p-0">
+          <SheetContent side={isSalesman ? "bottom" : "left"} className={isSalesman ? "rounded-t-3xl border-t-0 px-4 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] pt-3" : "w-64 p-0"}>
             <SheetHeader className="border-b p-4">
               <SheetTitle className="flex items-center gap-2">
                 <img src={LOGO_URL} alt={t("companyName")} className="h-8 w-8 shrink-0 rounded-md object-contain" />
                 <span className="min-w-0 truncate text-sm">{t("menu")}</span>
               </SheetTitle>
             </SheetHeader>
-            <div className="flex flex-col p-2">
+            <div className={isSalesman ? "grid grid-cols-2 gap-3 p-3 sm:grid-cols-3" : "flex flex-col p-2"}>
               {nav.map((n) => {
                 const Icon = navIcon[n.k] ?? LayoutDashboard;
                 return (
@@ -215,10 +217,10 @@ function MobileNav({ nav }: { nav: { to: string; k: Key }[] }) {
                     key={n.to}
                     to={n.to}
                     onClick={() => setOpen(false)}
-                    className="flex min-w-0 items-center gap-3 rounded-md px-3 py-2.5 text-sm hover:bg-muted"
-                    activeProps={{ className: "bg-accent font-bold text-accent-foreground" }}
+                    className={isSalesman ? "flex min-h-24 flex-col items-center justify-center gap-2 rounded-2xl border border-border/70 bg-gradient-to-br from-card to-muted/70 px-3 py-4 text-center text-sm font-bold shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md active:scale-[0.98]" : "flex min-w-0 items-center gap-3 rounded-md px-3 py-2.5 text-sm hover:bg-muted"}
+                    activeProps={{ className: isSalesman ? "border-primary bg-primary/10 text-primary shadow-md ring-1 ring-primary/20" : "bg-accent font-bold text-accent-foreground" }}
                   >
-                    <Icon className="h-4 w-4 shrink-0" />
+                    <Icon className={isSalesman ? "h-7 w-7 shrink-0 stroke-[2.4]" : "h-4 w-4 shrink-0"} />
                     <span className="min-w-0 break-words">{t(n.k)}</span>
                   </Link>
                 );

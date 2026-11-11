@@ -332,6 +332,12 @@ export type Database = {
         }
         Relationships: []
       }
+      sr_locations: {
+        Row: { salesman_id: string; latitude: number; longitude: number; accuracy: number | null; speed: number | null; heading: number | null; is_sharing: boolean; updated_at: string }
+        Insert: { salesman_id: string; latitude: number; longitude: number; accuracy?: number | null; speed?: number | null; heading?: number | null; is_sharing?: boolean; updated_at?: string }
+        Update: { salesman_id?: string; latitude?: number; longitude?: number; accuracy?: number | null; speed?: number | null; heading?: number | null; is_sharing?: boolean; updated_at?: string }
+        Relationships: [{ foreignKeyName: "sr_locations_salesman_id_fkey"; columns: ["salesman_id"]; isOneToOne: true; referencedRelation: "profiles"; referencedColumns: ["id"] }]
+      }
       retailer_payments: {
         Row: {
           client_op_id: string | null
