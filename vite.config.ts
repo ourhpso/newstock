@@ -31,6 +31,9 @@ export default defineConfig({
         // identically in dev, preview and production.
         manifest: false,
         workbox: {
+          // TanStack Start + Nitro emit Vercel client assets here (confirmed in Vercel build logs).
+          // Workbox defaults to dist/, which is empty for this deployment target.
+          globDirectory: ".vercel/output/static",
           // Only same-origin hashed build assets are precached (CacheFirst).
           globPatterns: ["**/*.{js,css,svg,png,ico,woff2}"],
           runtimeCaching: [
