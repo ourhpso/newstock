@@ -27,6 +27,8 @@ export default defineConfig({
         injectRegister: null,
         devOptions: { enabled: false },
         filename: "sw.js",
+        // Nitro publishes only .vercel/output/static; keep the generated worker there too.
+        outDir: onVercel ? ".vercel/output/static" : "dist",
         // Manifest is a static public/manifest.webmanifest so it is served
         // identically in dev, preview and production.
         manifest: false,
