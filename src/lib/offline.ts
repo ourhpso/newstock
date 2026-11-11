@@ -187,13 +187,25 @@ async function runEntry(entry: QueueEntry) {
     case "record_sale":
       return await rpc("record_sale", { ...op.payload, _op: entry.id });
     case "return_stock":
-      return await rpc("return_stock", { ...op.payload, _op: entry.id });
+      return await rpc("submit_workflow_request", {
+        _kind: "return", _salesman: op.payload._salesman,
+        _payload: { items: op.payload._items, date: op.payload._date },
+        _reason: "Offline return submitted for SR/Admin approval", _op: entry.id,
+      });
     case "issue_stock":
-      return await rpc("issue_stock", { ...op.payload, _op: entry.id });
+      return await rpc("submit_workflow_request", {
+        _kind: "issue", _salesman: op.payload._salesman,
+        _payload: { items: op.payload._items, date: op.payload._date },
+        _reason: "Offline stock issue awaiting SR receipt confirmation", _op: entry.id,
+      });
     case "retailer_return":
       return await rpc("record_retailer_return", { ...op.payload, _op: entry.id });
     case "deposit":
-      return await rpc("record_deposit", { ...op.payload, _op: entry.id });
+      return await rpc("submit_workflow_request", {
+        _kind: "deposit", _salesman: op.payload._salesman,
+        _payload: { amount: op.payload._amount, method: op.payload._method, note: op.payload._note, date: op.payload._date },
+        _reason: op.payload._note || "Offline cash handover submitted for SR/Admin approval", _op: entry.id,
+      });
     case "retailer_payment":
       return await rpc("record_retailer_payment", { ...op.payload, _op: entry.id });
     case "add_retailer": {
