@@ -209,6 +209,7 @@ begin
   if not found then raise exception 'Retailer not assigned to this SR'; end if;
   due:=public.retailer_due(_retailer); due_after:=due+gross-disc-coalesce(_paid,0);
   if lim is null or due_after-lim>e.over_limit_amount then raise exception 'Retailer due changed; request a new approval'; end if;
+  perform set_config('app.via_rpc','on',true);
   update public.retailers set credit_limit=due_after where id=_retailer;
   sid:=public.record_sale(_retailer,_items,_paid,disc,_date,_op);
   update public.retailers set credit_limit=lim where id=_retailer;
@@ -239,3 +240,37 @@ grant execute on function public.finalize_workflow_request(uuid) to authenticate
 grant execute on function public.request_credit_limit_exception(uuid,jsonb,numeric,text,numeric,date,text) to authenticated;
 grant execute on function public.decide_credit_limit_exception(uuid,boolean,text) to authenticated;
 grant execute on function public.record_sale_v2(uuid,jsonb,numeric,text,numeric,date,uuid,uuid) to authenticated;
+
+-- Immutable audit events for credit-limit approval/rejection.
+create table if not exists public.credit_limit_exception_events (
+ id uuid primary key default gen_random_uuid(),
+ exception_id uuid not null references public.credit_limit_exceptions(id) on delete cascade,
+ actor_id uuid not null references auth.users(id),
+ action text not null,
+ reason text,
+ created_at timestamptz not null default now()
+);
+create index if not exists credit_limit_exception_events_created_idx
+ on public.credit_limit_exception_events(exception_id,created_at);
+alter table public.credit_limit_exception_events enable row level security;
+grant select on public.credit_limit_exception_events to authenticated;
+drop policy if exists credit_limit_exception_events_read on public.credit_limit_exception_events;
+create policy credit_limit_exception_events_read on public.credit_limit_exception_events for select to authenticated
+ using(public.has_role(auth.uid(),'admin') or exists(
+   select 1 from public.credit_limit_exceptions e where e.id=exception_id and e.salesman_id=auth.uid()
+ ));
+create or replace function public.log_credit_limit_exception_event() returns trigger
+language plpgsql security definer set search_path=public as $$
+begin
+ if tg_op='INSERT' then
+  insert into public.credit_limit_exception_events(exception_id,actor_id,action,reason)
+  values(new.id,auth.uid(),'requested',new.reason);
+ elsif new.status is distinct from old.status then
+  insert into public.credit_limit_exception_events(exception_id,actor_id,action,reason)
+  values(new.id,coalesce(auth.uid(),new.decided_by),new.status,new.decision_reason);
+ end if;
+ return new;
+end $$;
+drop trigger if exists credit_limit_exception_audit on public.credit_limit_exceptions;
+create trigger credit_limit_exception_audit after insert or update of status on public.credit_limit_exceptions
+ for each row execute function public.log_credit_limit_exception_event();
