@@ -127,6 +127,13 @@
       "when": 1794200100000,
       "tag": "0017_purchase_weighted_cost",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1794401000000,
+      "tag": "0020_sr_live_locations",
+      "breakpoints": true
     }
   ]
 }
