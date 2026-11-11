@@ -57,10 +57,10 @@ function Purchases() {
     const current = itemsRef.current;
     const row = current[index];
     if (!row) return { ok: false, message: t("selectProduct") };
-    const existing = row.imeis.split(/[\\s,]+/).map((value) => value.trim()).filter(Boolean);
+    const existing = row.imeis.split(/[\s,]+/).map((value) => value.trim()).filter(Boolean);
     if (existing.includes(imei)) return { ok: false, message: t("duplicateImei") };
     const next = [...current];
-    next[index] = { ...row, imeis: row.imeis.trim() ? row.imeis.trim() + "\\n" + imei : imei };
+    next[index] = { ...row, imeis: row.imeis.trim() ? row.imeis.trim() + "\n" + imei : imei };
     itemsRef.current = next;
     setItems(next);
     return { ok: true, message: products.find((product) => product.id === row.product_id)?.name ?? "IMEI added" };
