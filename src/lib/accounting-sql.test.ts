@@ -300,6 +300,7 @@ describe("accounting chain (all migrations, PGlite)", () => {
     await as(owner);
     await db.query("UPDATE retailers SET credit_limit=NULL WHERE id=$1",[retailer]);
     await db.query("SELECT receive_stock($1,2,'opening','discount test stock','2026-11-11',$2)",[button,"a0000000-0000-4000-8000-000000000304"]);
+    await db.query("SELECT issue_stock($1,$2::jsonb,'2026-11-11',$3)",[sr,JSON.stringify([{ product_id: button, qty: 2 }]),"a0000000-0000-4000-8000-000000000309"]);
     await as(sr);
     const oldDue = Number((await one<{ retailer_due: string }>("SELECT retailer_due($1)",[retailer])).retailer_due);
     if (oldDue > 0) await db.query("SELECT record_retailer_payment($1,$2,'cash',NULL,'2026-11-11',$3)",[retailer,oldDue,"a0000000-0000-4000-8000-000000000308"]);
