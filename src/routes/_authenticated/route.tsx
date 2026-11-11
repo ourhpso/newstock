@@ -209,7 +209,7 @@ function MobileNav({ nav, isSalesman }: { nav: { to: string; k: Key }[]; isSales
                 <span className="min-w-0 truncate text-sm">{t("menu")}</span>
               </SheetTitle>
             </SheetHeader>
-            <div className="flex flex-col p-2">
+            <div className={isSalesman ? "grid grid-cols-2 gap-3 p-3 sm:grid-cols-3" : "flex flex-col p-2"}>
               {nav.map((n) => {
                 const Icon = navIcon[n.k] ?? LayoutDashboard;
                 return (
@@ -217,10 +217,10 @@ function MobileNav({ nav, isSalesman }: { nav: { to: string; k: Key }[]; isSales
                     key={n.to}
                     to={n.to}
                     onClick={() => setOpen(false)}
-                    className="flex min-w-0 items-center gap-3 rounded-md px-3 py-2.5 text-sm hover:bg-muted"
-                    activeProps={{ className: "bg-accent font-bold text-accent-foreground" }}
+                    className={isSalesman ? "flex min-h-24 flex-col items-center justify-center gap-2 rounded-2xl border border-border/70 bg-gradient-to-br from-card to-muted/70 px-3 py-4 text-center text-sm font-bold shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md active:scale-[0.98]" : "flex min-w-0 items-center gap-3 rounded-md px-3 py-2.5 text-sm hover:bg-muted"}
+                    activeProps={{ className: isSalesman ? "border-primary bg-primary/10 text-primary shadow-md ring-1 ring-primary/20" : "bg-accent font-bold text-accent-foreground" }}
                   >
-                    <Icon className="h-4 w-4 shrink-0" />
+                    <Icon className={isSalesman ? "h-7 w-7 shrink-0 stroke-[2.4]" : "h-4 w-4 shrink-0"} />
                     <span className="min-w-0 break-words">{t(n.k)}</span>
                   </Link>
                 );
