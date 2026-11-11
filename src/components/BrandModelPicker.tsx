@@ -160,6 +160,41 @@ export function BrandModelFields({
   const { brands, models } = useProductCatalog();
   const [newBrand, setNewBrand] = useState("");
   const [newModel, setNewModel] = useState("");
+  const selectedBrand = brands.find((b) => b.id === brandId);
+  const selectedModel = models.find((m) => m.id === modelId);
+  const [brandEdit, setBrandEdit] = useState("");
+  const [modelEdit, setModelEdit] = useState("");
+  async function renameBrand() {
+    const name = brandEdit.trim().toUpperCase();
+    if (!brandId || !name) return;
+    const { error } = await db.from("product_brands").update({ name }).eq("id", brandId);
+    if (error) { toast.error(error.message); return; }
+    await qc.invalidateQueries({ queryKey: ["product-brands"] });
+    setBrandEdit(""); toast.success("Brand renamed");
+  }
+  async function deleteBrand() {
+    if (!brandId || !window.confirm("এই ব্র্যান্ডটি মুছে ফেলবেন? ব্যবহৃত থাকলে মুছতে পারবেন না।")) return;
+    const { error } = await db.from("product_brands").delete().eq("id", brandId);
+    if (error) { toast.error(error.message); return; }
+    await qc.invalidateQueries({ queryKey: ["product-brands"] });
+    await qc.invalidateQueries({ queryKey: ["product-models"] });
+    onBrandChange(""); onModelChange(""); toast.success("Brand deleted");
+  }
+  async function renameModel() {
+    const name = modelEdit.trim();
+    if (!modelId || !name) return;
+    const { error } = await db.from("product_models").update({ name }).eq("id", modelId);
+    if (error) { toast.error(error.message); return; }
+    await qc.invalidateQueries({ queryKey: ["product-models"] });
+    setModelEdit(""); toast.success("Model renamed");
+  }
+  async function deleteModel() {
+    if (!modelId || !window.confirm("এই মডেলটি মুছে ফেলবেন? ব্যবহৃত থাকলে মুছতে পারবেন না।")) return;
+    const { error } = await db.from("product_models").delete().eq("id", modelId);
+    if (error) { toast.error(error.message); return; }
+    await qc.invalidateQueries({ queryKey: ["product-models"] });
+    onModelChange(""); toast.success("Model deleted");
+  }
   async function addBrand() {
     const name = newBrand.trim().toUpperCase();
     if (!name) return;
@@ -184,12 +219,22 @@ export function BrandModelFields({
         <SelectContent>{brands.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}</SelectContent>
       </Select>
       {allowManage && <div className="flex gap-2"><Input value={newBrand} onChange={(e) => setNewBrand(e.target.value)} placeholder="Add another brand" /><Button type="button" size="sm" variant="outline" onClick={addBrand} disabled={!newBrand.trim()}>+</Button></div>}
+      {allowManage && brandId && selectedBrand && <div className="flex flex-wrap gap-2">
+        <Input className="min-w-0 flex-1" value={brandEdit} onChange={(e) => setBrandEdit(e.target.value)} placeholder={selectedBrand.name + " — নতুন নাম"} />
+        <Button type="button" size="sm" variant="outline" disabled={!brandEdit.trim()} onClick={renameBrand}>Rename</Button>
+        <Button type="button" size="sm" variant="destructive" onClick={deleteBrand}>Delete</Button>
+      </div>}
       {brandId && recentChips(models.filter((m)=>m.brand_id===brandId),"model:"+brandId,onModelChange).length>0 && <div className="flex flex-wrap gap-1">{recentChips(models.filter((m)=>m.brand_id===brandId),"model:"+brandId,onModelChange)}</div>}
       <Select value={modelId} disabled={!brandId} onValueChange={(v) => { rememberId("model:"+brandId,v); onModelChange(v); }}>
         <SelectTrigger><SelectValue placeholder="Model" /></SelectTrigger>
         <SelectContent>{models.filter((m) => m.brand_id === brandId).map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}</SelectContent>
       </Select>
       {allowManage && brandId && <div className="flex gap-2"><Input value={newModel} onChange={(e) => setNewModel(e.target.value)} placeholder="Add model for selected brand" /><Button type="button" size="sm" variant="outline" onClick={addModel} disabled={!newModel.trim()}>+</Button></div>}
+      {allowManage && modelId && selectedModel && <div className="flex flex-wrap gap-2">
+        <Input className="min-w-0 flex-1" value={modelEdit} onChange={(e) => setModelEdit(e.target.value)} placeholder={selectedModel.name + " — নতুন নাম"} />
+        <Button type="button" size="sm" variant="outline" disabled={!modelEdit.trim()} onClick={renameModel}>Rename</Button>
+        <Button type="button" size="sm" variant="destructive" onClick={deleteModel}>Delete</Button>
+      </div>}
     </div>
   );
 }
