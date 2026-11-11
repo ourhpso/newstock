@@ -23,6 +23,8 @@ type Return = { id:string; salesman_id:string; retailer_id:string; doc_no:string
 type Deposit = { id:string; salesman_id:string; receipt_no:string|null; amount:number; method:string; note:string|null; txn_date:string; created_at:string };
 type Movement = { id:string; salesman_id:string; product_id:string; retailer_id:string|null; sale_id:string|null; kind:string; qty:number; unit_price:number; imei:string|null; batch_no:string|null; txn_date:string; created_at:string };
 type Dataset = { sales:Sale[]; payments:Payment[]; returns:Return[]; deposits:Deposit[]; movements:Movement[] };
+type ReportTable = "sales" | "retailer_payments" | "retailer_returns" | "deposits" | "stock_movements";
+type ReportCell = string | number | null | undefined;
 const today = () => new Date().toLocaleDateString("en-CA",{timeZone:"Asia/Dhaka"});
 const monthStart = () => today().slice(0,8)+"01";
 const TYPES = ["sale","collection","retailer_return","deposit","issue","stock_return","damage","sale_return"] as const;
@@ -54,7 +56,7 @@ function SalesmanReports() {
     queryKey:["detailed-salesman-report",me?.id,effectiveSalesman,retailerId,from,to],
     enabled:!!me && !!from && !!to && from<=to,
     queryFn:async():Promise<Dataset>=>{
-      const all=async<T,>(table:string,columns:string):Promise<T[]>=>{
+      const all=async<T,>(table:ReportTable,columns:string):Promise<T[]>=>{
         const result:T[]=[];
         for(let offset=0;offset<100000;offset+=1000){
           let q:any=supabase.from(table).select(columns).gte("txn_date",from).lte("txn_date",to).order("txn_date",{ascending:true}).range(offset,offset+999);
@@ -127,12 +129,12 @@ function SalesmanReports() {
   const title=me?.isAdmin?(effectiveSalesman?salesmen.find(s=>s.id===effectiveSalesman)?.full_name??"Salesman report":"Joint salesman report"):"My sales & account report";
   function exportExcel(){
     if(!data)return;
-    const summary=[["Report",title],["From",from],["To",to],["Sales",totals.sales],["Collections",totals.collections],["Retailer returns",totals.returns],["Deposits",totals.deposits],["Issued stock value",totals.stockIssued],["Returned stock value",totals.stockReturned],["Current sales total",summaryQuery.data?.salesTotal??0],["Current cash in hand",summaryQuery.data?.cashInHand??0],["Current retailer due",summaryQuery.data?.retailerDue??0],["Current deposited",summaryQuery.data?.deposited??0],["Current goods value in hand",summaryQuery.data?.goodsValue??0],["Current products in hand",summaryQuery.data?.products??0]];
-    const transactions=[["Date","Salesman","Retailer / Dealer","Transaction","Reference","Product / Details","Quantity","Debit","Credit","Note"],...rows.map(r=>[formatDate(r.date),r.salesman,r.retailer,r.type,r.reference,r.product,r.qty,r.debit,r.credit,r.note??""])];
-    const customers=[["Retailer","Salesman","Sales","Paid at sale","Collections","Returns","Outstanding"]];
+    const summary: ReportCell[][]=[["Report",title],["From",from],["To",to],["Sales",totals.sales],["Collections",totals.collections],["Retailer returns",totals.returns],["Deposits",totals.deposits],["Issued stock value",totals.stockIssued],["Returned stock value",totals.stockReturned],["Current sales total",summaryQuery.data?.salesTotal??0],["Current cash in hand",summaryQuery.data?.cashInHand??0],["Current retailer due",summaryQuery.data?.retailerDue??0],["Current deposited",summaryQuery.data?.deposited??0],["Current goods value in hand",summaryQuery.data?.goodsValue??0],["Current products in hand",summaryQuery.data?.products??0]];
+    const transactions: ReportCell[][]=[["Date","Salesman","Retailer / Dealer","Transaction","Reference","Product / Details","Quantity","Debit","Credit","Note"],...rows.map(r=>[formatDate(r.date),r.salesman,r.retailer,r.type,r.reference,r.product,r.qty,r.debit,r.credit,r.note??""])];
+    const customers: ReportCell[][]=[["Retailer","Salesman","Sales","Paid at sale","Collections","Returns","Outstanding"]];
     const customerIds=[...new Set(data.sales.map(s=>s.retailer_id).concat(data.payments.map(p=>p.retailer_id),data.returns.map(r=>r.retailer_id)))];
     for(const id of customerIds){const retailer=retailers.find(r=>r.id===id);const sales=data.sales.filter(r=>r.retailer_id===id);const pays=data.payments.filter(r=>r.retailer_id===id);const rets=data.returns.filter(r=>r.retailer_id===id);customers.push([retailer?.name??id,salesmen.find(s=>s.id===retailer?.salesman_id)?.full_name??"",sales.reduce((a,r)=>a+Number(r.total),0),sales.reduce((a,r)=>a+Number(r.paid),0),pays.reduce((a,r)=>a+Number(r.amount),0),rets.reduce((a,r)=>a+Number(r.total),0),sales.reduce((a,r)=>a+Number(r.total)-Number(r.paid),0)-pays.reduce((a,r)=>a+Number(r.amount),0)-rets.reduce((a,r)=>a+Number(r.total),0)]);}
-    const stock=[["Date","Salesman","Product","Movement","Reference","Qty","Unit price","Value","IMEI"],...data.movements.filter(m=>m.kind!=="sale"||selectedTypes.includes("sale")).filter(m=>m.kind!=="issue"||selectedTypes.includes("issue")).filter(m=>m.kind!=="return"||selectedTypes.includes("stock_return")).filter(m=>m.kind!=="damage"||selectedTypes.includes("damage")).filter(m=>m.kind!=="sale_return"||selectedTypes.includes("sale_return")).map(m=>[formatDate(m.txn_date),salesmen.find(s=>s.id===m.salesman_id)?.full_name??"",[brands.find(b=>b.id===products.find(p=>p.id===m.product_id)?.brand_id)?.name,models.find(x=>x.id===products.find(p=>p.id===m.product_id)?.model_id)?.name,products.find(p=>p.id===m.product_id)?.name].filter(Boolean).join(" · "),m.kind,m.batch_no??"",Number(m.qty),Number(m.unit_price),Number(m.qty)*Number(m.unit_price),m.imei??""])];
+    const stock: ReportCell[][]=[["Date","Salesman","Product","Movement","Reference","Qty","Unit price","Value","IMEI"],...data.movements.filter(m=>m.kind!=="sale"||selectedTypes.includes("sale")).filter(m=>m.kind!=="issue"||selectedTypes.includes("issue")).filter(m=>m.kind!=="return"||selectedTypes.includes("stock_return")).filter(m=>m.kind!=="damage"||selectedTypes.includes("damage")).filter(m=>m.kind!=="sale_return"||selectedTypes.includes("sale_return")).map(m=>[formatDate(m.txn_date),salesmen.find(s=>s.id===m.salesman_id)?.full_name??"",[brands.find(b=>b.id===products.find(p=>p.id===m.product_id)?.brand_id)?.name,models.find(x=>x.id===products.find(p=>p.id===m.product_id)?.model_id)?.name,products.find(p=>p.id===m.product_id)?.name].filter(Boolean).join(" · "),m.kind,m.batch_no??"",Number(m.qty),Number(m.unit_price),Number(m.qty)*Number(m.unit_price),m.imei??""])];
     void exportExcelWorkbook("salesman-report-"+from+"-"+to+".xls",[{name:"Summary",rows:summary},{name:"Transactions",rows:transactions},{name:"Retailer ledgers",rows:customers},{name:"Stock movements",rows:stock}],title);
   }
   function printReport(){setPrintDoc(<DetailedReportDoc business={business} title={title} period={from+" — "+to} rows={rows} totals={totals}/>);}

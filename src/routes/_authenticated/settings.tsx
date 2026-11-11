@@ -10,7 +10,7 @@ import { useT, type Key } from "@/lib/i18n";
 import { formatDateTime, formatInteger, money } from "@/lib/imei";
 import { useBusiness } from "@/lib/business";
 import { getQueue, removeQueueEntry, replayQueue, useOnline, usePendingSyncCount } from "@/lib/offline";
-import { CACHE_KEY } from "@/lib/query-persist";
+import { clearUserCache } from "@/lib/query-persist";
 import { supabase } from "@/integrations/supabase/client";
 import { exportBusinessData, resetBusinessData, restoreBusinessData } from "@/lib/settings.functions";
 import { parseBusinessBackup, backupCounts, RESET_PHRASE, RESTORE_PHRASE, type BusinessBackup } from "@/lib/settings-data";
@@ -32,7 +32,7 @@ function Settings() {
   const { data: me } = useMe();
   const qc = useQueryClient();
   const online = useOnline();
-  const pending = usePendingSyncCount();
+  const pending = usePendingSyncCount(me?.id ?? null);
   const [business, saveBusiness] = useBusiness();
   const [company, setCompany] = useState(business);
   const [password, setPassword] = useState("");
@@ -50,7 +50,7 @@ function Settings() {
     setBusy(true); try { await action(); } catch (e) { toast.error((e as Error).message); } finally { setBusy(false); }
   }
   async function download() {
-    if (getQueue().length) throw new Error(t("queueGuard"));
+    if (getQueue(me?.id ?? null).length) throw new Error(t("queueGuard"));
     const snapshot = parseBusinessBackup(await exportData());
     const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob); const a = document.createElement("a");
@@ -63,14 +63,14 @@ function Settings() {
     if (getQueue().length) throw new Error(t("queueGuard"));
     if (mode === "cache") {
       await qc.cancelQueries(); qc.removeQueries({ predicate: (q) => q.queryKey[0] !== "me" });
-      localStorage.removeItem(CACHE_KEY); setMode(null); toast.success(t("done")); return;
+      if (me?.id) clearUserCache(me.id); setMode(null); toast.success(t("done")); return;
     }
     if (!backupId) throw new Error(t("safetyBackup"));
     if (mode === "reset" && confirmation === RESET_PHRASE) await reset({ data: { confirmation: RESET_PHRASE, backupId } });
     else if (mode === "restore" && backup && confirmation === RESTORE_PHRASE) await restore({ data: { confirmation: RESTORE_PHRASE, backup, backupId } });
     else return;
     await qc.cancelQueries(); qc.removeQueries({ predicate: (q) => q.queryKey[0] !== "me" });
-    localStorage.removeItem(CACHE_KEY); setBackupId(null); setBackup(null); setMode(null);
+    if (me?.id) clearUserCache(me.id); setBackupId(null); setBackup(null); setMode(null);
     await qc.invalidateQueries(); toast.success(t("done"));
   }
   return <div className="space-y-8">
@@ -96,14 +96,14 @@ function Settings() {
       {pending > 0 && (
         <div className="space-y-2">
           <h3 className="text-sm font-semibold">{t("queueEntries")}</h3>
-          {getQueue().map((e) => (
+          {getQueue(me?.id ?? null).map((e) => (
             <div key={e.id} className="flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2 text-sm">
               <span className="font-medium">{e.op.kind}</span>
               <span className="text-muted-foreground">{formatDateTime(e.createdAt)}</span>
               {e.attempts > 0 && <span className="text-muted-foreground">{t("attempts")}: {e.attempts}</span>}
               {e.lastError && <span className="min-w-0 flex-1 break-words text-destructive">{e.lastError}</span>}
               <span className="flex-1" />
-              <Button size="sm" variant="ghost" onClick={() => removeQueueEntry(e.id)}>{t("delete")}</Button>
+              <Button size="sm" variant="ghost" onClick={() => removeQueueEntry(e.id, me?.id ?? null)}>{t("delete")}</Button>
             </div>
           ))}
         </div>

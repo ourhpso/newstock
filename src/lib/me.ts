@@ -34,7 +34,11 @@ export const meQueryOptions = {
 
 /** Route guard: only admins may proceed; salesmen are sent to their dashboard. Reuses the cached "me" query. */
 export async function requireAdmin({ context }: { context: { queryClient: QueryClient } }) {
-  const me = await context.queryClient.ensureQueryData(meQueryOptions);
+  // Role/permission state is never trusted from a previous offline session.
+  if (typeof navigator !== "undefined" && !navigator.onLine) {
+    throw new Error("ইন্টারনেট সংযোগ ছাড়া প্রশাসনিক অনুমতি যাচাই করা যাবে না। সংযোগ ফিরলে আবার চেষ্টা করুন।");
+  }
+  const me = await context.queryClient.fetchQuery({ ...meQueryOptions, staleTime: 0 });
   if (!me) throw redirect({ to: "/auth" });
   if (!me.isAdmin) throw redirect({ to: "/dashboard" });
 }
