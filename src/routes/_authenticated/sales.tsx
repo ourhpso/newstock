@@ -78,7 +78,14 @@ function Sales() {
   const needsCreditApproval = !!ledger && ledger.credit_limit !== null && ledger.due + Math.max(0, total - paidN) > ledger.credit_limit;
   const activeException = creditExceptions.find((x) => x.id === exceptionId && x.retailer_id === rid) ?? creditExceptions.find((x) => x.retailer_id === rid && (x.status === "approved" || x.status === "pending" || x.status === "rejected"));
   const saleItems = cart.map((l) => ({ product_id: l.product_id, qty: l.qty, unit_price: l.unit_price, imeis: l.imeis }));
-  const exceptionMatchesSale = !!activeException && JSON.stringify(activeException.payload?.items) === JSON.stringify(saleItems)
+  const approvedItems = activeException?.payload?.items as Array<Record<string, unknown>> | undefined;
+  const exceptionMatchesSale = !!activeException && Array.isArray(approvedItems) && approvedItems.length === saleItems.length
+    && saleItems.every((item, index) => {
+      const saved = approvedItems[index];
+      return saved?.["product_id"] === item.product_id && Number(saved?.["qty"]) === item.qty
+        && Number(saved?.["unit_price"]) === item.unit_price
+        && JSON.stringify(saved?.["imeis"] ?? []) === JSON.stringify(item.imeis);
+    })
     && Number(activeException.payload?.paid) === paidN
     && activeException.payload?.discount_mode === discountMode
     && Number(activeException.payload?.discount_value) === discountValue
