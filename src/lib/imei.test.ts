@@ -11,8 +11,17 @@ describe("IMEI rules", () => {
   it("rejects IMEI with wrong length", () => {
     expect(isValidImeiFormat("49015420323751")).toBe(false);
   });
-  it("extracts IMEI from scanned barcode text", () => {
+  it("extracts IMEI from scanned barcode text with a numeric prefix", () => {
     expect(extractImei("IMEI1: 490154203237518")).toBe("490154203237518");
+  });
+  it("skips a barcode AIM prefix and chooses the valid Luhn IMEI", () => {
+    expect(extractImei("]C1490154203237518")).toBe("490154203237518");
+  });
+  it("does not mistake a 14-digit GTIN prefix for the IMEI", () => {
+    expect(extractImei("010123456789012821490154203237518")).toBe("490154203237518");
+  });
+  it("keeps a deterministic candidate for invalid-checksum feedback", () => {
+    expect(extractImei("IMEI: 490154203237519")).toBe("490154203237519");
   });
 });
 
