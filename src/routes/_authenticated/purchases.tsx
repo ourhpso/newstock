@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { PageTitle } from "@/components/Stat";
 import { BrandModelProductPicker } from "@/components/BrandModelPicker";
 import { SearchHistoryBar } from "@/components/SearchHistoryBar";
+import { ImeiScanner } from "@/components/ImeiScanner";
 
 export const Route = createFileRoute("/_authenticated/purchases")({
   beforeLoad: requireAdmin,
@@ -225,7 +226,18 @@ function Purchases() {
                 : <Input type="number" min={1} step={1} placeholder={t("qty")} value={row.qty} onChange={(e) => { const next = [...items]; next[i] = { ...row, qty: e.target.value }; setItems(next); }} />}
               <Button type="button" size="sm" variant="ghost" onClick={() => setItems(items.filter((_, x) => x !== i))}>✕</Button>
               {p?.is_smartphone && (
-                <Textarea className="sm:col-span-4" rows={2} placeholder="IMEI list" value={row.imeis} onChange={(e) => { const next = [...items]; next[i] = { ...row, imeis: e.target.value }; setItems(next); }} />
+                <div className="sm:col-span-4 space-y-2">
+                  <Label>IMEI barcode scan / manual entry</Label>
+                  <ImeiScanner validate={async (imei) => {
+                    const current = row.imeis.split(/[\\s,]+/).map((value) => value.trim()).filter(Boolean);
+                    if (current.includes(imei)) return { ok: false, message: t("duplicateImei") };
+                    const next = [...items];
+                    next[i] = { ...row, imeis: row.imeis.trim() ? `${row.imeis.trim()}\\n${imei}` : imei };
+                    setItems(next);
+                    return { ok: true, message: p.name };
+                  }} />
+                  <Textarea rows={3} placeholder="One IMEI per line (or comma separated)" value={row.imeis} onChange={(e) => { const next = [...items]; next[i] = { ...row, imeis: e.target.value }; setItems(next); }} />
+                </div>
               )}
             </div>
           );
