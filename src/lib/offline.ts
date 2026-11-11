@@ -271,13 +271,13 @@ async function replayQueueOnce(currentUserId: string | null): Promise<ReplayResu
 }
 
 /** Reactive pending-entry count for the header badge. */
-export function usePendingSyncCount(): number {
+export function usePendingSyncCount(userId: string | null = activeQueueUserId()): number {
   return useSyncExternalStore(
     (cb) => {
       listeners.add(cb);
       return () => listeners.delete(cb);
     },
-    () => getQueue().length,
+    () => getQueue(userId).length,
     () => 0,
   );
 }
