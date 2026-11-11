@@ -205,7 +205,7 @@ export function ImeiScanner({ validate }: { validate: (imei: string) => Promise<
         throw new Error("এই ব্রাউজারে ক্যামেরা সমর্থিত নয়। HTTPS সংযোগ বা আধুনিক ব্রাউজার ব্যবহার করুন।");
       }
       // Warm the WASM module before the first difficult frame; the import is lazy.
-      const wasmReady = loadWasmReader();
+      const wasmReady = loadWasmReader();\n      void wasmReady.catch((error) => {\n        setSignal({ ok: false, text: `WASM decoder unavailable; native scanning will continue: ${error instanceof Error ? error.message : String(error)}` });\n      });
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: false,
         video: {
@@ -219,7 +219,7 @@ export function ImeiScanner({ validate }: { validate: (imei: string) => Promise<
       const track = stream.getVideoTracks()[0];
       trackRef.current = track ?? null;
       if (track) {
-        const capabilities = track.getCapabilities() as CameraCapabilities;
+        const capabilities = (typeof track.getCapabilities === "function" ? track.getCapabilities() : {}) as CameraCapabilities;
         setTorchAvailable(Boolean(capabilities.torch));
         const advanced: AdvancedCameraConstraint[] = [];
         if (capabilities.focusMode?.includes("continuous")) advanced.push({ focusMode: "continuous" });
