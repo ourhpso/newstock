@@ -111,7 +111,7 @@ export function CartBuilder({
       <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 rounded-lg border bg-card p-4 sm:grid-cols-[minmax(0,1fr)_6rem_auto]">
         <div className="col-span-full text-sm font-semibold">{t("buttonPhone")}</div>
         <div className="col-span-full sm:col-span-1">
-          <BrandModelProductPicker value={pid} placeholder={t("selectProduct")} onChange={setPid} onlyProductIds={onlyProductIds} excludeSmartphones stockByProductId={mode === "issue" ? undefined : stockByProductId} />
+          <BrandModelProductPicker value={pid} placeholder={t("selectProduct")} onChange={setPid} excludeSmartphones {...(onlyProductIds ? { onlyProductIds } : {})} {...(mode !== "issue" ? { stockByProductId } : {})} />
         </div>
         <Input className="w-full min-w-0" type="number" min={1} value={qty} onChange={(e) => setQty(e.target.value)} />
         <Button type="button" variant="secondary" onClick={addButton}>{t("add")}</Button>
