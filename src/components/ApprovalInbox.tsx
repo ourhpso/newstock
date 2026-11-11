@@ -50,7 +50,7 @@ export function ApprovalInbox({ isAdmin, salesmanId }: { isAdmin: boolean; sales
     } finally { setBusyId(""); }
   }
   const label = (type: ApprovalRequest["request_type"]) => type === "stock_issue" ? "পণ্য ইস্যু" : type === "stock_return" ? "অবিক্রীত পণ্য ফেরত" : "নগদ জমা";
-  const statusLabel = (status: string) => ({ pending_sr: "SR গ্রহণ নিশ্চিত করবে", awaiting_admin_finalize: "SR নিশ্চিত করেছে — Admin চূড়ান্ত করবেন", pending_admin: "Admin অনুমোদনের অপেক্ষায়", completed: "সম্পন্ন", rejected: "প্রত্যাখ্যাত" }[status] ?? status);
+  const statusLabel = (status: string) => ({ pending_sr: "SR গ্রহণ নিশ্চিত করবে", awaiting_admin_finalize: "SR নিশ্চিত করেছে — Admin চূড়ান্ত করবেন", pending_admin: "Admin অনুমোদনের অপেক্ষায়", completed: "সম্পন্ন", rejected: "প্রত্যাখ্যাত" } as Record<string, string>)[status] ?? status;
   if (isLoading) return <section className="rounded-xl border p-4 text-sm text-muted-foreground">Approval requests loading…</section>;
   if (!visible.length) return <section className="rounded-xl border p-4"><h2 className="font-semibold">অনুমোদন ও অডিট</h2><p className="mt-1 text-sm text-muted-foreground">কোনো অনুমোদন অনুরোধ নেই।</p></section>;
   return <section className="space-y-3 rounded-xl border bg-card p-4">
@@ -61,12 +61,12 @@ export function ApprovalInbox({ isAdmin, salesmanId }: { isAdmin: boolean; sales
       const canDecide = isAdmin && r.request_type !== "stock_issue" && r.status === "pending_admin";
       const ev = events.filter((e) => e.request_id === r.id);
       const payload = r.payload ?? {};
-      const detail = r.request_type === "cash_deposit" ? `Amount: ${String(payload.amount ?? "")} · ${String(payload.method ?? "cash")}` : `Items: ${Array.isArray(payload.items) ? payload.items.length : 0}`;
+      const detail = r.request_type === "cash_deposit" ? `Amount: ${String(payload["amount"] ?? "")} · ${String(payload["method"] ?? "cash")}` : `Items: ${Array.isArray(payload["items"]) ? payload["items"].length : 0}`;
       return <article key={r.id} className="space-y-2 rounded-lg border p-3">
         <div className="flex flex-wrap items-center justify-between gap-2"><b>{label(r.request_type)}</b><span className="rounded-full bg-muted px-2 py-1 text-xs">{statusLabel(r.status)}</span></div>
         <div className="text-xs text-muted-foreground">SR: {r.salesman_id} · {new Date(r.created_at).toLocaleString("en-GB")} · {detail}</div>
         {r.reason && <p className="text-sm">কারণ: {r.reason}</p>}
-        {r.decision_reason && <p className="text-sm">সিদ্ধান্তের কারণ: {r.decision_reason}</p>}
+        {r.decision_reason && <p className="text-sm">সিদ্ধান্তের কারণ: {r.decision_reason}</p>}{r.result_ref && <p className="text-xs text-muted-foreground">Final document: {r.result_ref}</p>}
         {(canDecide || canFinalize) && <Input value={decisionReason} onChange={(e) => setDecisionReason(e.target.value)} placeholder="সিদ্ধান্তের কারণ (কমপক্ষে ৩ অক্ষর)" />}
         <div className="flex flex-wrap gap-2">
           {canConfirm && <Button size="sm" disabled={busyId === r.id} onClick={() => act(r.id,"confirm")}>পণ্য গ্রহণ নিশ্চিত</Button>}
