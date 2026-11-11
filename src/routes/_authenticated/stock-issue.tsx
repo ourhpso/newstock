@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Printer } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useMe, useSalesmen, requireAdmin } from "@/lib/me";
-import { runOrQueue, useOnline } from "@/lib/offline";
+import { rpc } from "@/lib/rpc";
 import { useBusiness } from "@/lib/business";
 import { useT } from "@/lib/i18n";
 import { PrintSheet, TableDoc } from "@/components/PrintDocs";
@@ -40,20 +40,20 @@ function StockIssue() {
   const [busy, setBusy] = useState(false);
   const [lastBatch, setLastBatch] = useState<string | null>(null);
   const [printDoc, setPrintDoc] = useState<ReactNode | null>(null);
-  const online = useOnline();
 
   async function submit() {
     if (busy || !sid || !cart.length || !me) return;
     setBusy(true);
     try {
-      const result = await runOrQueue(
-        { kind: "issue_stock", payload: { _salesman: sid, _items: cart.map((l) => ({ product_id: l.product_id, qty: l.qty, imeis: l.imeis })), _date: date || null } },
-        !online,
-        me.id,
-      );
-      if (result.s === "error") { toast.error(result.error); return; }
-      toast.success(t(result.s === "queued" ? "savedOffline" : "done"));
-      if (result.s === "done" && typeof result.data === "string") setLastBatch(result.data);
+      const result = await rpc<string>("submit_workflow_request", {
+        _kind: "issue",
+        _salesman: sid,
+        _payload: { items: cart.map((l) => ({ product_id: l.product_id, qty: l.qty, imeis: l.imeis })), date: date || null },
+        _reason: "Admin stock issue; awaiting SR receipt confirmation",
+        _op: crypto.randomUUID(),
+      });
+      if (result.error) { toast.error(result.error.message); return; }
+      toast.success("ইস্যু অনুরোধ পাঠানো হয়েছে। SR গ্রহণ নিশ্চিত করার পর Admin স্টক চূড়ান্ত করবেন।");
       setCart([]);
       qc.invalidateQueries();
     } finally {
