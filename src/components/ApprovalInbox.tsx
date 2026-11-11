@@ -35,16 +35,17 @@ export function ApprovalInbox({ isAdmin, salesmanId }: { isAdmin: boolean; sales
     },
   });
   const visible = requests.filter((r) => isAdmin || r.salesman_id === salesmanId);
-  async function act(id: string, action: "confirm" | "approve" | "reject" | "finalize") {
+  async function act(id: string, action: "confirm" | "reject_issue" | "approve" | "reject" | "finalize") {
     if (busyId) return;
     setBusyId(id);
     try {
       let result: { error: { message: string } | null; data: unknown };
       if (action === "confirm") result = await rpc("confirm_stock_issue_receipt", { _request: id });
+      else if (action === "reject_issue") result = await rpc("reject_stock_issue_request", { _request: id, _reason: decisionReason.trim() });
       else if (action === "finalize") result = await rpc("finalize_workflow_request", { _request: id });
       else result = await rpc("decide_workflow_request", { _request: id, _approved: action === "approve", _reason: decisionReason.trim() });
       if (result.error) { toast.error(result.error.message); return; }
-      toast.success(action === "confirm" ? "Receipt confirmation saved" : action === "reject" ? "Request rejected" : "Approval completed");
+      toast.success(action === "confirm" ? "Receipt confirmation saved" : action === "reject" || action === "reject_issue" ? "Request rejected" : "Approval completed");
       setDecisionReason("");
       await Promise.all([qc.invalidateQueries({ queryKey: ["approval-requests"] }), qc.invalidateQueries({ queryKey: ["approval-events"] }), qc.invalidateQueries()]);
     } finally { setBusyId(""); }
@@ -67,9 +68,9 @@ export function ApprovalInbox({ isAdmin, salesmanId }: { isAdmin: boolean; sales
         <div className="text-xs text-muted-foreground">SR: {r.salesman_id} · {new Date(r.created_at).toLocaleString("en-GB")} · {detail}</div>
         {r.reason && <p className="text-sm">কারণ: {r.reason}</p>}
         {r.decision_reason && <p className="text-sm">সিদ্ধান্তের কারণ: {r.decision_reason}</p>}{r.result_ref && <p className="text-xs text-muted-foreground">Final document: {r.result_ref}</p>}
-        {(canDecide || canFinalize) && <Input value={decisionReason} onChange={(e) => setDecisionReason(e.target.value)} placeholder="সিদ্ধান্তের কারণ (কমপক্ষে ৩ অক্ষর)" />}
+        {(canDecide || canFinalize || canConfirm) && <Input value={decisionReason} onChange={(e) => setDecisionReason(e.target.value)} placeholder="সিদ্ধান্তের কারণ (কমপক্ষে ৩ অক্ষর)" />}
         <div className="flex flex-wrap gap-2">
-          {canConfirm && <Button size="sm" disabled={busyId === r.id} onClick={() => act(r.id,"confirm")}>পণ্য গ্রহণ নিশ্চিত</Button>}
+          {canConfirm && <><Button size="sm" disabled={busyId === r.id} onClick={() => act(r.id,"confirm")}>পণ্য গ্রহণ নিশ্চিত</Button><Button size="sm" variant="destructive" disabled={busyId === r.id || decisionReason.trim().length < 3} onClick={() => act(r.id,"reject_issue")}>পণ্য গ্রহণ প্রত্যাখ্যান</Button></>}
           {canFinalize && <Button size="sm" disabled={busyId === r.id} onClick={() => act(r.id,"finalize")}>চূড়ান্তভাবে স্টক যোগ করুন</Button>}
           {canDecide && <><Button size="sm" disabled={busyId === r.id || decisionReason.trim().length < 3} onClick={() => act(r.id,"approve")}>অনুমোদন</Button><Button size="sm" variant="destructive" disabled={busyId === r.id || decisionReason.trim().length < 3} onClick={() => act(r.id,"reject")}>প্রত্যাখ্যান</Button></>}
         </div>
