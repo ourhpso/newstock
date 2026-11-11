@@ -15,6 +15,8 @@ export type ScanResult = { ok: boolean; message?: string | undefined };
 export function ImeiScanner({ validate }: { validate: (imei: string) => Promise<ScanResult> }) {
   const { t } = useT();
   const [signal, setSignal] = useState<null | { ok: boolean; text: string }>(null);
+  const validateRef = useRef(validate);
+  validateRef.current = validate;
   const [manual, setManual] = useState("");
   const [scanning, setScanning] = useState(false);
   const [starting, setStarting] = useState(false);
@@ -38,7 +40,7 @@ export function ImeiScanner({ validate }: { validate: (imei: string) => Promise<
     try {
       const res = !isValidImeiFormat(imei)
         ? { ok: false, message: "IMEI format/checksum" }
-        : await validate(imei);
+        : await validateRef.current(imei);
       signalFeedback(res.ok);
       setSignal({
         ok: res.ok,
