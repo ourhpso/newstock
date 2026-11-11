@@ -78,6 +78,7 @@ export function SrLocationShare({ salesmanId }: { salesmanId: string }) {
     toast.info("লোকেশন শেয়ারিং চালু হয়েছে। অ্যাপ খোলা থাকলে লোকেশন আপডেট হবে।");
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     let optedIn = false;
     try { optedIn = localStorage.getItem("sr-location-sharing-consent") === "true"; } catch { /* storage may be unavailable */ }
