@@ -55,7 +55,7 @@ function Settlement() {
         <>
           <SalesmanSummary salesmanId={sid} />
           <ReportBox salesmanId={sid} salesmanName={name} />
-          {!me.isAdmin && me.permissions.returns && <ReturnBox key={"r" + sid} salesmanId={sid} actorId={me.id} />}
+          {!me.isAdmin && me.permissions.returns && <ReturnBox key={"r" + sid} salesmanId={sid} />}
           {!me.isAdmin && <DepositBox key={"d" + sid} salesmanId={sid} actorId={me.id} />}
           <DepositHistory salesmanId={sid} salesmanName={name} />
           {me.isAdmin && <ExpensesSection />}
@@ -112,7 +112,7 @@ function ReportBox({ salesmanId, salesmanName }: { salesmanId: string; salesmanN
 
 const todayDhaka = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Dhaka" });
 
-function ReturnBox({ salesmanId, actorId }: { salesmanId: string; actorId: string }) {
+function ReturnBox({ salesmanId }: { salesmanId: string }) {
   const { t } = useT();
   const qc = useQueryClient();
   const { data: summary } = useSalesmanSummary(salesmanId);
@@ -154,7 +154,7 @@ function ReturnBox({ salesmanId, actorId }: { salesmanId: string; actorId: strin
 
 const METHODS = ["cash", "bank", "bkash", "nagad"] as const;
 
-function DepositBox({ salesmanId, actorId }: { salesmanId: string; actorId: string }) {
+function DepositBox({ salesmanId }: { salesmanId: string }) {
   const { t } = useT();
   const qc = useQueryClient();
   const { data } = useSalesmanSummary(salesmanId);
