@@ -1,6 +1,6 @@
 import { pageHead } from "@/lib/page-head";
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Printer } from "lucide-react";
@@ -63,6 +63,7 @@ function Sales() {
   const [exceptionReason, setExceptionReason] = useState("");
   const [exceptionId, setExceptionId] = useState<string | null>(null);
   const [adminDecisionReason, setAdminDecisionReason] = useState("");
+  const saleOpRef = useRef<{ fingerprint: string; id: string } | null>(null);
   const [date, setDate] = useState(todayDhaka());
   const [busy, setBusy] = useState(false);
   const [cart, setCart] = useState<CartLine[]>([]);
@@ -91,6 +92,7 @@ function Sales() {
     && Number(activeException.payload?.discount_value) === discountValue
     && (activeException.payload?.date ?? null) === (date || null);
   const approvedException = activeException?.status === "approved" && exceptionMatchesSale;
+  const saleFingerprint = JSON.stringify({ retailer: rid, items: saleItems, paid: paidN, discountMode, discountValue, date: date || null, exceptionId: needsCreditApproval && approvedException ? activeException.id : null });
   const invalid = !rid || !cart.length || busy || disc < 0 || disc > cartTotal || (discountMode === "percent" && discountValue > 100) || paidN < 0 || paidN > total || cart.some((l) => !(l.unit_price > 0)) || (needsCreditApproval && !approvedException);
 
   async function submit() {
@@ -99,15 +101,18 @@ function Sales() {
     setBusy(true);
     try {
       if (!online) { toast.error("বিক্রি সম্পন্ন করতে ইন্টারনেট সংযোগ প্রয়োজন।"); return; }
+      if (saleOpRef.current?.fingerprint !== saleFingerprint) saleOpRef.current = { fingerprint: saleFingerprint, id: crypto.randomUUID() };
+      const saleOpId = saleOpRef.current.id;
       const result = await rpc<string>("record_sale_v2", {
         _retailer: rid,
         _items: cart.map((l) => ({ product_id: l.product_id, qty: l.qty, unit_price: l.unit_price, imeis: l.imeis })),
         _paid: paidN, _discount_mode: discountMode, _discount_value: discountValue,
         _date: date || null, _exception_id: needsCreditApproval && approvedException ? activeException.id : null,
-        _op: crypto.randomUUID(),
+        _op: saleOpId,
       });
       if (result.error) { toast.error(result.error.message); return; }
       toast.success(t("done"));
+      saleOpRef.current = null;
       const saleId = result.data as string;
       const { data: row } = await supabase.from("sales").select("invoice_no,total,paid,discount,txn_date").eq("id", saleId).maybeSingle();
       setLastSale({
