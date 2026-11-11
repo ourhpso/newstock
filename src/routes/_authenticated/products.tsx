@@ -1,6 +1,6 @@
 import { pageHead } from "@/lib/page-head";
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -52,6 +52,8 @@ function Products() {
   const [f, setF] = useState({ price: "", is_smartphone: true, stock_qty: "" });
   const [imeiFor, setImeiFor] = useState<string | null>(null);
   const [imeiText, setImeiText] = useState("");
+  const imeiTextRef = useRef(imeiText);
+  imeiTextRef.current = imeiText;
   const [imeiCost, setImeiCost] = useState("");
   const [addQty, setAddQty] = useState<Record<string, string>>({});
   const [limits, setLimits] = useState<Record<string, string>>({});
