@@ -10,6 +10,6 @@ jobs:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
       - run: bun install --no-save
+      - run: bun run build
       - run: bun x tsc --noEmit
       - run: bun x vitest run
-      - run: bun run build
