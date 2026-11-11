@@ -58,7 +58,10 @@ begin
   st:='pending_admin';
  end if;
  if _kind in ('issue','return') and (jsonb_typeof(_payload->'items')<>'array' or jsonb_array_length(_payload->'items')=0) then raise exception 'At least one item is required'; end if;
- if _kind='deposit' and coalesce((_payload->>'amount')::numeric,0)<=0 then raise exception 'Positive deposit amount required'; end if;
+ if _kind='deposit' then
+  if coalesce((_payload->>'amount')::numeric,0)<=0 then raise exception 'Positive deposit amount required'; end if;
+  if (_payload->>'amount')::numeric > public.salesman_cash(_salesman) then raise exception 'Deposit exceeds salesman cash in hand'; end if;
+ end if;
  if _op is not null then select id into rid from public.approval_requests where client_op_id=_op; if rid is not null then return rid; end if; end if;
  insert into public.approval_requests(request_type,salesman_id,created_by,payload,reason,status,client_op_id)
  values(case _kind when 'issue' then 'stock_issue' when 'return' then 'stock_return' else 'cash_deposit' end,
