@@ -57,8 +57,8 @@ export function ApprovalInbox({ isAdmin, salesmanId }: { isAdmin: boolean; sales
   return <section className="space-y-3 rounded-xl border bg-card p-4">
     <div><h2 className="font-display text-lg font-bold">অনুমোদন ও অডিট ট্রেইল</h2><p className="text-xs text-muted-foreground">কে, কখন, কী সিদ্ধান্ত নিয়েছেন—প্রতিটি ধাপ সংরক্ষিত থাকে।</p></div>
     {visible.map((r) => {
-      const canConfirm = !isAdmin && r.request_type === "stock_issue" && r.status === "pending_sr";
-      const canFinalize = isAdmin && r.request_type === "stock_issue" && r.status === "awaiting_admin_finalize";
+      const canConfirm = !isAdmin && r.status === "pending_sr";
+      const canFinalize = isAdmin && r.status === "awaiting_admin_finalize";
       const canDecide = isAdmin && r.request_type !== "stock_issue" && r.status === "pending_admin";
       const ev = events.filter((e) => e.request_id === r.id);
       const payload = r.payload ?? {};
@@ -70,8 +70,8 @@ export function ApprovalInbox({ isAdmin, salesmanId }: { isAdmin: boolean; sales
         {r.decision_reason && <p className="text-sm">সিদ্ধান্তের কারণ: {r.decision_reason}</p>}{r.result_ref && <p className="text-xs text-muted-foreground">Final document: {r.result_ref}</p>}
         {(canDecide || canFinalize || canConfirm) && <Input value={decisionReason} onChange={(e) => setDecisionReason(e.target.value)} placeholder="সিদ্ধান্তের কারণ (কমপক্ষে ৩ অক্ষর)" />}
         <div className="flex flex-wrap gap-2">
-          {canConfirm && <><Button size="sm" disabled={busyId === r.id} onClick={() => act(r.id,"confirm")}>পণ্য গ্রহণ নিশ্চিত</Button><Button size="sm" variant="destructive" disabled={busyId === r.id || decisionReason.trim().length < 3} onClick={() => act(r.id,"reject_issue")}>পণ্য গ্রহণ প্রত্যাখ্যান</Button></>}
-          {canFinalize && <Button size="sm" disabled={busyId === r.id} onClick={() => act(r.id,"finalize")}>চূড়ান্তভাবে স্টক যোগ করুন</Button>}
+          {canConfirm && <><Button size="sm" disabled={busyId === r.id} onClick={() => act(r.id,"confirm")}>{r.request_type === "stock_issue" ? "পণ্য গ্রহণ নিশ্চিত" : r.request_type === "stock_return" ? "ফেরত পণ্য হস্তান্তর নিশ্চিত" : "নগদ হস্তান্তর নিশ্চিত"}</Button><Button size="sm" variant="destructive" disabled={busyId === r.id || decisionReason.trim().length < 3} onClick={() => act(r.id,"reject_issue")}>অনুরোধ প্রত্যাখ্যান</Button></>}
+          {canFinalize && <Button size="sm" disabled={busyId === r.id} onClick={() => act(r.id,"finalize")}>{r.request_type === "stock_issue" ? "স্টক চূড়ান্ত করুন" : r.request_type === "stock_return" ? "ফেরত স্টক চূড়ান্ত করুন" : "নগদ জমা চূড়ান্ত করুন"}</Button>}
           {canDecide && <><Button size="sm" disabled={busyId === r.id || decisionReason.trim().length < 3} onClick={() => act(r.id,"approve")}>অনুমোদন</Button><Button size="sm" variant="destructive" disabled={busyId === r.id || decisionReason.trim().length < 3} onClick={() => act(r.id,"reject")}>প্রত্যাখ্যান</Button></>}
         </div>
         {ev.length > 0 && <div className="border-t pt-2"><p className="mb-1 text-xs font-semibold">Audit history</p>{ev.map((e) => <p key={e.id} className="text-xs text-muted-foreground">{new Date(e.created_at).toLocaleString("en-GB")} · {e.action} · {e.actor_id}{e.reason ? ` · ${e.reason}` : ""}</p>)}</div>}
