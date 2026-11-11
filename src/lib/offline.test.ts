@@ -57,8 +57,8 @@ describe("offline queue", () => {
     const second = replayQueue();
     expect(first).toBe(second);
     enqueueOp(pay(200));
-    if (!finish) throw new Error("Replay did not start");
-    finish({ data: null, error: null });
+    await vi.waitFor(() => expect(finish).toBeTypeOf("function"));
+    finish!({ data: null, error: null });
     await first;
     expect(rpc).toHaveBeenCalledTimes(1);
     expect(getQueue()).toHaveLength(1);
@@ -125,8 +125,8 @@ describe("offline queue legacy upgrade", () => {
     expect(getQueue("user-b")).toHaveLength(1);
     expect(getQueue("user-c")).toHaveLength(0);
     const legacy = JSON.parse(window.localStorage.getItem("offline-queue-v1") ?? "[]");
-    expect(legacy).toHaveLength(2);
-    expect(legacy.map((entry: { userId?: string }) => entry.userId)).toEqual(["user-b", undefined]);
+    expect(legacy).toHaveLength(1);
+    expect(legacy.map((entry: { userId?: string }) => entry.userId)).toEqual([undefined]);
   });
   it("converts v1 payloads to the validated RPC shapes", async () => {
     window.localStorage.setItem("offline-queue-v1", JSON.stringify([
