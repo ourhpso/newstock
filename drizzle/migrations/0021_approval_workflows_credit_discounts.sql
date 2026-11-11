@@ -174,8 +174,16 @@ begin
  if jsonb_typeof(_items)<>'array' or jsonb_array_length(_items)=0 then raise exception 'Sale items required'; end if;
  for it in select * from jsonb_array_elements(_items) loop
   select * into p from public.products where id=(it->>'product_id')::uuid;
-  if p.id is null or coalesce((it->>'qty')::numeric,0)<=0 then raise exception 'Invalid product or quantity'; end if;
-  gross:=gross+coalesce((it->>'qty')::numeric,0)*coalesce((it->>'unit_price')::numeric,p.price);
+  if p.id is null then raise exception 'Product not found'; end if;
+  if coalesce((it->>'unit_price')::numeric,p.price)<=0 then raise exception 'Unit price must be positive'; end if;
+  if p.is_smartphone then
+   if jsonb_typeof(it->'imeis')<>'array' or jsonb_array_length(it->'imeis')<=0
+      or coalesce((it->>'qty')::int,0)<>jsonb_array_length(it->'imeis') then raise exception 'Smartphone quantity must match scanned IMEIs'; end if;
+   gross:=gross+jsonb_array_length(it->'imeis')*coalesce((it->>'unit_price')::numeric,p.price);
+  else
+   if coalesce((it->>'qty')::numeric,0)<=0 then raise exception 'Invalid quantity'; end if;
+   gross:=gross+coalesce((it->>'qty')::numeric,0)*coalesce((it->>'unit_price')::numeric,p.price);
+  end if;
  end loop;
  if _discount_mode='percent' then
   if coalesce(_discount_value,0)<0 or _discount_value>100 then raise exception 'Percent discount must be 0 to 100'; end if;
@@ -214,8 +222,16 @@ begin
  if _op is not null then select id into sid from public.sales where client_op_id=_op; if sid is not null then return sid; end if; end if;
  for it in select * from jsonb_array_elements(_items) loop
   select * into p from public.products where id=(it->>'product_id')::uuid;
-  if p.id is null or coalesce((it->>'qty')::numeric,0)<=0 then raise exception 'Invalid product or quantity'; end if;
-  gross:=gross+coalesce((it->>'qty')::numeric,0)*coalesce((it->>'unit_price')::numeric,p.price);
+  if p.id is null then raise exception 'Product not found'; end if;
+  if coalesce((it->>'unit_price')::numeric,p.price)<=0 then raise exception 'Unit price must be positive'; end if;
+  if p.is_smartphone then
+   if jsonb_typeof(it->'imeis')<>'array' or jsonb_array_length(it->'imeis')<=0
+      or coalesce((it->>'qty')::int,0)<>jsonb_array_length(it->'imeis') then raise exception 'Smartphone quantity must match scanned IMEIs'; end if;
+   gross:=gross+jsonb_array_length(it->'imeis')*coalesce((it->>'unit_price')::numeric,p.price);
+  else
+   if coalesce((it->>'qty')::numeric,0)<=0 then raise exception 'Invalid quantity'; end if;
+   gross:=gross+coalesce((it->>'qty')::numeric,0)*coalesce((it->>'unit_price')::numeric,p.price);
+  end if;
  end loop;
  if _discount_mode='percent' then
   if coalesce(_discount_value,0)<0 or _discount_value>100 then raise exception 'Percent discount must be 0 to 100'; end if;
@@ -314,6 +330,7 @@ begin
  perform set_config('app.via_rpc','on',true);
  if _op is not null then select id into sid from public.sales where client_op_id=_op; if sid is not null then return sid; end if; end if;
  if disc<0 or coalesce(_paid,0)<0 then raise exception 'Invalid discount or paid amount'; end if;
+ if jsonb_typeof(_items)<>'array' or jsonb_array_length(_items)=0 then raise exception 'Sale items are required'; end if;
  select credit_limit into lim from public.retailers where id=_retailer and salesman_id=me for update;
  if not found then raise exception 'retailer not yours'; end if;
  insert into public.sales(salesman_id,retailer_id,total,paid,discount,invoice_no,client_op_id,txn_date)
@@ -324,6 +341,7 @@ begin
   price:=coalesce((it->>'unit_price')::numeric,p.price);
   if price<=0 then raise exception 'Unit price must be positive for %',p.name; end if;
   if p.is_smartphone then
+   if jsonb_typeof(it->'imeis')<>'array' or jsonb_array_length(it->'imeis')<=0 or nvl((it->>'qty')::int,0)<>jsonb_array_length(it->'imeis') then raise exception 'Smartphone quantity must match scanned IMEIs'; end if;
    for im in select jsonb_array_elements_text(it->'imeis') loop
     update public.imei_units set status='sold',retailer_id=_retailer
      where imei=im and product_id=p.id and status='with_salesman' and salesman_id=me;
