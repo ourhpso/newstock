@@ -51,6 +51,20 @@ function Purchases() {
   const [date, setDate] = useState(todayDhaka());
   const [paid, setPaid] = useState("");
   const [items, setItems] = useState<ItemRow[]>([{ product_id: "", cost: "", qty: "1", imeis: "" }]);
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
+  function appendPurchaseImei(index: number, imei: string): { ok: boolean; message: string } {
+    const current = itemsRef.current;
+    const row = current[index];
+    if (!row) return { ok: false, message: t("selectProduct") };
+    const existing = row.imeis.split(/[\\s,]+/).map((value) => value.trim()).filter(Boolean);
+    if (existing.includes(imei)) return { ok: false, message: t("duplicateImei") };
+    const next = [...current];
+    next[index] = { ...row, imeis: row.imeis.trim() ? row.imeis.trim() + "\\n" + imei : imei };
+    itemsRef.current = next;
+    setItems(next);
+    return { ok: true, message: products.find((product) => product.id === row.product_id)?.name ?? "IMEI added" };
+  }
   const [busy, setBusy] = useState(false);
   const purchaseOp = useRef<string | null>(null);
   if (!purchaseOp.current) purchaseOp.current = createOperationId();
@@ -228,14 +242,7 @@ function Purchases() {
               {p?.is_smartphone && (
                 <div className="sm:col-span-4 space-y-2">
                   <Label>IMEI barcode scan / manual entry</Label>
-                  <ImeiScanner validate={async (imei) => {
-                    const current = row.imeis.split(/[\\s,]+/).map((value) => value.trim()).filter(Boolean);
-                    if (current.includes(imei)) return { ok: false, message: t("duplicateImei") };
-                    const next = [...items];
-                    next[i] = { ...row, imeis: row.imeis.trim() ? `${row.imeis.trim()}\\n${imei}` : imei };
-                    setItems(next);
-                    return { ok: true, message: p.name };
-                  }} />
+                  <ImeiScanner validate={async (imei) => appendPurchaseImei(i, imei)} />
                   <Textarea rows={3} placeholder="One IMEI per line (or comma separated)" value={row.imeis} onChange={(e) => { const next = [...items]; next[i] = { ...row, imeis: e.target.value }; setItems(next); }} />
                 </div>
               )}
