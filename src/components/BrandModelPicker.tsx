@@ -173,12 +173,26 @@ export function BrandModelFields({
     setBrandEdit(""); toast.success("Brand renamed");
   }
   async function deleteBrand() {
-    if (!brandId || !window.confirm("এই ব্র্যান্ডটি মুছে ফেলবেন? ব্যবহৃত থাকলে মুছতে পারবেন না।")) return;
+    if (!brandId || !window.confirm("এই ব্র্যান্ড এবং এর সব মডেল মুছে ফেলবেন? কোনো পণ্যে ব্যবহৃত থাকলে মুছতে পারবেন না।")) return;
+    const modelIds = models.filter((m) => m.brand_id === brandId).map((m) => m.id);
+    const [{ data: brandProducts, error: brandError }, modelUsage] = await Promise.all([
+      db.from("products").select("id").eq("brand_id", brandId).limit(1),
+      modelIds.length ? db.from("products").select("id").in("model_id", modelIds).limit(1) : Promise.resolve({ data: [], error: null }),
+    ]);
+    if (brandError || modelUsage.error) { toast.error(brandError?.message ?? modelUsage.error.message); return; }
+    if ((brandProducts?.length ?? 0) > 0 || (modelUsage.data?.length ?? 0) > 0) {
+      toast.error("এই ব্র্যান্ড/মডেল পণ্যে ব্যবহৃত হচ্ছে। আগে পণ্যের Brand/Model পরিবর্তন করুন।");
+      return;
+    }
+    if (modelIds.length) {
+      const { error: modelDeleteError } = await db.from("product_models").delete().eq("brand_id", brandId);
+      if (modelDeleteError) { toast.error(modelDeleteError.message); return; }
+    }
     const { error } = await db.from("product_brands").delete().eq("id", brandId);
     if (error) { toast.error(error.message); return; }
     await qc.invalidateQueries({ queryKey: ["product-brands"] });
     await qc.invalidateQueries({ queryKey: ["product-models"] });
-    onBrandChange(""); onModelChange(""); toast.success("Brand deleted");
+    onBrandChange(""); onModelChange(""); toast.success("Brand and unused models deleted");
   }
   async function renameModel() {
     const name = modelEdit.trim();
@@ -189,7 +203,10 @@ export function BrandModelFields({
     setModelEdit(""); toast.success("Model renamed");
   }
   async function deleteModel() {
-    if (!modelId || !window.confirm("এই মডেলটি মুছে ফেলবেন? ব্যবহৃত থাকলে মুছতে পারবেন না।")) return;
+    if (!modelId || !window.confirm("এই মডেলটি মুছে ফেলবেন? পণ্যে ব্যবহৃত থাকলে আগে পণ্যের মডেল পরিবর্তন করতে হবে।")) return;
+    const { data: linkedProducts, error: lookupError } = await db.from("products").select("id").eq("model_id", modelId).limit(1);
+    if (lookupError) { toast.error(lookupError.message); return; }
+    if ((linkedProducts?.length ?? 0) > 0) { toast.error("এই মডেলটি পণ্যে ব্যবহৃত হচ্ছে। আগে পণ্যের মডেল পরিবর্তন করুন।"); return; }
     const { error } = await db.from("product_models").delete().eq("id", modelId);
     if (error) { toast.error(error.message); return; }
     await qc.invalidateQueries({ queryKey: ["product-models"] });

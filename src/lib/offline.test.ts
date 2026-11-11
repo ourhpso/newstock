@@ -137,7 +137,7 @@ describe("offline queue legacy upgrade", () => {
     const res = await replayQueue("user-a");
     expect(res.synced).toBe(3);
     const calls = rpc.mock.calls.map((c) => [c[0], c[1]]);
-    expect(calls[0]).toEqual(["record_deposit", { _salesman: "s1", _amount: 700, _method: "cash", _note: "old", _date: null, _op: expect.any(String) }]);
+    expect(calls[0]).toEqual(["submit_workflow_request", { _kind: "deposit", _salesman: "s1", _payload: { amount: 700, method: "cash", note: "old", date: null }, _reason: "old", _op: expect.any(String) }]);
     expect(calls[1]?.[0]).toBe("record_retailer_payment");
     expect(calls[2]?.[0]).toBe("record_sale");
     expect((calls[2]?.[1] as { _discount: number })._discount).toBe(0);

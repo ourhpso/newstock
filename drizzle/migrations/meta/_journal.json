@@ -134,6 +134,20 @@
       "when": 1794401000000,
       "tag": "0020_sr_live_locations",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1794408966374,
+      "tag": "0021_approval_workflows_credit_discounts",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1794410290792,
+      "tag": "0022_enforce_approval_only_stock_cash",
+      "breakpoints": true
     }
   ]
 }

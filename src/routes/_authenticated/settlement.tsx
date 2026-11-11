@@ -1,7 +1,7 @@
 import { pageHead } from "@/lib/page-head";
 import { createFileRoute } from "@tanstack/react-router";
 import { useRef, useState, type ReactNode } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { FileSpreadsheet, Printer } from "lucide-react";
 import { useMe, useSalesmanSummary, useSalesmen } from "@/lib/me";
@@ -9,10 +9,9 @@ import { useT } from "@/lib/i18n";
 import { formatDateTime, money } from "@/lib/imei";
 import { exportCsv } from "@/lib/export";
 import { useBusiness } from "@/lib/business";
-import { runOrQueue, useOnline } from "@/lib/offline";
 import { rpc, type ProfitSummary } from "@/lib/rpc";
+import { runOrQueue, useOnline } from "@/lib/offline";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuery } from "@tanstack/react-query";
 import { Label } from "@/components/ui/label";
 import { MoneyReceiptDoc, PrintSheet, SettlementDoc } from "@/components/PrintDocs";
 import { CartBuilder, type CartLine } from "@/components/CartBuilder";
@@ -23,6 +22,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PageTitle } from "@/components/Stat";
 import { SearchHistoryBar } from "@/components/SearchHistoryBar";
+import { ApprovalInbox } from "@/components/ApprovalInbox";
 
 export const Route = createFileRoute("/_authenticated/settlement")({
   head: () => pageHead("ফেরত ও জমা", "FIROZA ENTERPRISE returns, damage, deposits and settlement reports."),
@@ -42,6 +42,7 @@ function Settlement() {
   return (
     <div className="space-y-6">
       <PageTitle>{t("settlement")}</PageTitle>
+      <ApprovalInbox isAdmin={me.isAdmin} salesmanId={me.id} />
       {me.isAdmin && (
         <div className="space-y-2"><SearchHistoryBar value={salesmanSearch} onChange={setSalesmanSearch} historyKey="settlement-salesman" placeholder="Search salesman..." />
         <Select value={picked} onValueChange={setPicked}>
@@ -53,8 +54,8 @@ function Settlement() {
         <>
           <SalesmanSummary salesmanId={sid} />
           <ReportBox salesmanId={sid} salesmanName={name} />
-          {(me.isAdmin || me.permissions.returns) && <ReturnBox key={"r" + sid} salesmanId={sid} actorId={me.id} />}
-          {me.isAdmin && <DepositBox key={"d" + sid} salesmanId={sid} actorId={me.id} />}
+          {!me.isAdmin && me.permissions.returns && <ReturnBox key={"r" + sid} salesmanId={sid} />}
+          {!me.isAdmin && <DepositBox key={"d" + sid} salesmanId={sid} />}
           <DepositHistory salesmanId={sid} salesmanName={name} />
           {me.isAdmin && <ExpensesSection />}
           {me.isAdmin && <ProfitSection />}
@@ -110,28 +111,22 @@ function ReportBox({ salesmanId, salesmanName }: { salesmanId: string; salesmanN
 
 const todayDhaka = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Dhaka" });
 
-function ReturnBox({ salesmanId, actorId }: { salesmanId: string; actorId: string }) {
+function ReturnBox({ salesmanId }: { salesmanId: string }) {
   const { t } = useT();
   const qc = useQueryClient();
+  const online = useOnline();
   const { data: summary } = useSalesmanSummary(salesmanId);
   const [cart, setCart] = useState<CartLine[]>([]);
   const [date, setDate] = useState(todayDhaka());
   const [busy, setBusy] = useState(false);
-  const [lastBatch, setLastBatch] = useState<string | null>(null);
-  const online = useOnline();
   const held = summary?.products.filter((p) => p.hand > 0).map((p) => p.product_id) ?? [];
   async function submit() {
     if (busy) return;
     setBusy(true);
     try {
-      const result = await runOrQueue(
-        { kind: "return_stock", payload: { _salesman: salesmanId, _items: cart.map((l) => ({ product_id: l.product_id, qty: l.qty, imeis: l.imeis, damaged: !!l.damaged })), _date: date || null } },
-        !online,
-        actorId,
-      );
+      const result = await runOrQueue({ kind: "return_stock", payload: { _salesman: salesmanId, _items: cart.map((l) => ({ product_id: l.product_id, qty: l.qty, imeis: l.imeis, damaged: !!l.damaged })), _date: date || null } }, !online, salesmanId);
       if (result.s === "error") { navigator.vibrate?.(300); toast.error(result.error); return; }
-      toast.success(t(result.s === "queued" ? "savedOffline" : "done"));
-      if (result.s === "done" && typeof result.data === "string") setLastBatch(result.data);
+      toast.success(result.s === "queued" ? t("savedOffline") : "ফেরত পণ্যের অনুরোধ Admin-এর অনুমোদনের জন্য পাঠানো হয়েছে।");
       setCart([]);
       qc.invalidateQueries();
     } finally { setBusy(false); }
@@ -145,7 +140,6 @@ function ReturnBox({ salesmanId, actorId }: { salesmanId: string; actorId: strin
       {summary && summary.handImeis.length > 0 && (
         <p className="break-words text-xs text-muted-foreground">{t("inHand")} IMEI: {summary.handImeis.map((i) => i.imei).join(", ")}</p>
       )}
-      {lastBatch && <p className="text-sm font-semibold">{t("challan")}: {lastBatch}</p>}
       <CartBuilder mode="return" salesmanId={salesmanId} cart={cart} setCart={setCart} onlyProductIds={held} />
       <Button className="w-full" disabled={!cart.length || busy} onClick={submit}>{t("confirm")}</Button>
     </section>
@@ -154,7 +148,7 @@ function ReturnBox({ salesmanId, actorId }: { salesmanId: string; actorId: strin
 
 const METHODS = ["cash", "bank", "bkash", "nagad"] as const;
 
-function DepositBox({ salesmanId, actorId }: { salesmanId: string; actorId: string }) {
+function DepositBox({ salesmanId }: { salesmanId: string }) {
   const { t } = useT();
   const qc = useQueryClient();
   const { data } = useSalesmanSummary(salesmanId);
@@ -169,12 +163,12 @@ function DepositBox({ salesmanId, actorId }: { salesmanId: string; actorId: stri
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (busy || n <= 0) return;
-    if (online && data && n > cash) { toast.error(`${t("cashInHand")}: ${money(cash)}`); return; }
+    if (n > cash) { toast.error(`${t("cashInHand")}: ${money(cash)}`); return; }
     setBusy(true);
     try {
-      const result = await runOrQueue({ kind: "deposit", payload: { _salesman: salesmanId, _amount: n, _method: method, _note: note || null, _date: date || null } }, !online, actorId);
+      const result = await runOrQueue({ kind: "deposit", payload: { _salesman: salesmanId, _amount: n, _method: method, _note: note || null, _date: date || null } }, !online, salesmanId);
       if (result.s === "error") { toast.error(result.error); return; }
-      setAmt(""); setNote(""); toast.success(t(result.s === "queued" ? "savedOffline" : "done"));
+      setAmt(""); setNote(""); toast.success(result.s === "queued" ? t("savedOffline") : "নগদ জমার অনুরোধ Admin-এর অনুমোদনের জন্য পাঠানো হয়েছে।");
       qc.invalidateQueries();
     } finally { setBusy(false); }
   }
