@@ -27,7 +27,8 @@ const navIcon: Partial<Record<Key, LucideIcon>> = {
   sales: ShoppingCart,
   retailers: Store,
   settings: Settings2,
-  userAccess: ShieldCheck,\n  srLocations: MapPin,
+  userAccess: ShieldCheck,
+  srLocations: MapPin,
   reports: FileBarChart,
 };
 
