@@ -65,7 +65,9 @@ export function ImeiScanner({ validate }: { validate: (imei: string) => Promise<
   const [starting, setStarting] = useState(false);
   const [torchAvailable, setTorchAvailable] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
-  const [zoom, setZoom] = useState(1);\n  const [zoomMax, setZoomMax] = useState(4);
+  const [zoom, setZoom] = useState(1);
+  const [zoomMin, setZoomMin] = useState(1);
+  const [zoomMax, setZoomMax] = useState(4);
   const validateRef = useRef(validate);
   validateRef.current = validate;
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -205,7 +207,10 @@ export function ImeiScanner({ validate }: { validate: (imei: string) => Promise<
         throw new Error("এই ব্রাউজারে ক্যামেরা সমর্থিত নয়। HTTPS সংযোগ বা আধুনিক ব্রাউজার ব্যবহার করুন।");
       }
       // Warm the WASM module before the first difficult frame; the import is lazy.
-      const wasmReady = loadWasmReader();\n      void wasmReady.catch((error) => {\n        setSignal({ ok: false, text: `WASM decoder unavailable; native scanning will continue: ${error instanceof Error ? error.message : String(error)}` });\n      });
+      const wasmReady = loadWasmReader();
+      void wasmReady.catch((error) => {
+        setSignal({ ok: false, text: `WASM decoder unavailable; native scanning will continue: ${error instanceof Error ? error.message : String(error)}` });
+      });
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: false,
         video: {
@@ -230,6 +235,7 @@ export function ImeiScanner({ validate }: { validate: (imei: string) => Promise<
         if (capabilities.zoom) {
           const initialZoom = Math.max(capabilities.zoom.min, Math.min(1, capabilities.zoom.max));
           setZoom(initialZoom);
+          setZoomMin(capabilities.zoom.min);
           setZoomMax(capabilities.zoom.max);
         }
       }
@@ -237,7 +243,6 @@ export function ImeiScanner({ validate }: { validate: (imei: string) => Promise<
       if (!video) throw new Error("ক্যামেরা প্রিভিউ পাওয়া যায়নি।");
       video.srcObject = stream;
       await video.play();
-      await wasmReady;
 
       // Use the native API only for formats the current browser actually supports.
       const Detector = (window as Window & { BarcodeDetector?: NativeDetectorConstructor }).BarcodeDetector;
@@ -345,8 +350,8 @@ export function ImeiScanner({ validate }: { validate: (imei: string) => Promise<
             <input
               aria-label="Camera zoom"
               type="range"
-              min={1}
-              max={4}
+              min={zoomMin}
+              max={zoomMax}
               step={0.1}
               value={zoom}
               onChange={(event) => void changeZoom(Number(event.target.value))}
