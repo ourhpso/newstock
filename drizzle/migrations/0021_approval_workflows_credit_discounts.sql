@@ -260,13 +260,6 @@ begin
  return public.record_sale(_retailer,_items,_paid,disc,_date,_op);
 end $$;
 
--- Prevent authenticated users from bypassing SR/Admin approval by calling legacy stock/cash RPCs.
-revoke all on function public.issue_stock(uuid,jsonb,date,uuid) from public,anon,authenticated;
-revoke all on function public.issue_stock(uuid,jsonb) from public,anon,authenticated;
-revoke all on function public.return_stock(uuid,jsonb,date,uuid) from public,anon,authenticated;
-revoke all on function public.return_stock(uuid,jsonb) from public,anon,authenticated;
-revoke all on function public.record_deposit(uuid,numeric,text,text,date,uuid) from public,anon,authenticated;
-
 revoke all on function public.submit_workflow_request(text,uuid,jsonb,text,uuid) from public,anon;
 revoke all on function public.confirm_stock_issue_receipt(uuid) from public,anon;
 revoke all on function public.reject_stock_issue_request(uuid,text) from public,anon;
