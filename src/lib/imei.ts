@@ -4,7 +4,7 @@
  * instead of blindly taking the first 15 digits (which may include a prefix).
  */
 export function extractImei(raw: string): string {
-  const digits = raw.replace(/\\D/g, "");
+  const digits = raw.replace(/\D/g, "");
   if (digits.length <= 15) return digits;
   for (let start = 0; start <= digits.length - 15; start++) {
     const candidate = digits.slice(start, start + 15);
@@ -16,7 +16,7 @@ export function extractImei(raw: string): string {
 
 /** IMEI must be 15 digits and pass the Luhn checksum. */
 export function isValidImeiFormat(imei: string): boolean {
-  if (!/^\\d{15}$/.test(imei)) return false;
+  if (!/^\d{15}$/.test(imei)) return false;
   let sum = 0;
   for (let i = 0; i < 15; i++) {
     let d = Number(imei[i]);
