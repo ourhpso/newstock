@@ -4,7 +4,7 @@ import { useMe } from "@/lib/me";
 import { useT, type Key } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { useQueryClient } from "@tanstack/react-query";
-import { LayoutDashboard, Menu, Package, Users, PackageOpen, HandCoins, ShoppingCart, Store, Settings2, ShieldCheck, FileBarChart, type LucideIcon } from "lucide-react";
+import { LayoutDashboard, Menu, Package, Users, PackageOpen, HandCoins, ShoppingCart, Store, Settings2, ShieldCheck, FileBarChart, MapPin, type LucideIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useBusiness } from "@/lib/business";
 import { useOnline, usePendingSyncCount } from "@/lib/offline";
@@ -27,7 +27,7 @@ const navIcon: Partial<Record<Key, LucideIcon>> = {
   sales: ShoppingCart,
   retailers: Store,
   settings: Settings2,
-  userAccess: ShieldCheck,
+  userAccess: ShieldCheck,\n  srLocations: MapPin,
   reports: FileBarChart,
 };
 
@@ -46,6 +46,7 @@ const adminNav: { to: string; k: Key }[] = [
   { to: "/products", k: "products" },
   { to: "/purchases", k: "purchases" },
   { to: "/salesmen", k: "salesmen" },
+  { to: "/sr-locations", k: "srLocations" },
   { to: "/stock-issue", k: "stockIssue" },
   { to: "/settlement", k: "settlement" },
   { to: "/reports", k: "reports" },
@@ -96,7 +97,7 @@ function Layout() {
       </header>
       <DesktopSidebar nav={nav} />
       <main className="mx-auto min-w-0 max-w-6xl px-3 py-5 sm:px-4">{me?.active ? <Outlet /> : me ? <p className="text-destructive">{t("accountDisabled")}</p> : null}</main>
-      <MobileNav nav={nav} />
+      <MobileNav nav={nav} isSalesman={!me?.isAdmin} />
     </div>
   );
 }
@@ -163,7 +164,7 @@ function DesktopSidebar({ nav }: { nav: { to: string; k: Key }[] }) {
  * pages + a "More" button) and an auto-hiding side drawer that lists every
  * page. The drawer closes itself as soon as a page is opened.
  */
-function MobileNav({ nav }: { nav: { to: string; k: Key }[] }) {
+function MobileNav({ nav, isSalesman }: { nav: { to: string; k: Key }[]; isSalesman: boolean }) {
   const { t } = useT();
   const [open, setOpen] = useState(false);
   const currentPath = useRouterState({ select: (r) => r.location.pathname });
@@ -171,10 +172,10 @@ function MobileNav({ nav }: { nav: { to: string; k: Key }[] }) {
   useEffect(() => {
     setOpen(false);
   }, [currentPath]);
-  const bar = nav.slice(0, 3);
+  const bar = isSalesman ? nav.slice(0, 2) : nav.slice(0, 3);
   return (
     <>
-      <nav className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-4 border-t bg-card pb-[env(safe-area-inset-bottom)] shadow-sm md:hidden">
+      <nav className={`fixed inset-x-0 bottom-0 z-20 grid border-t bg-card pb-[env(safe-area-inset-bottom)] shadow-sm md:hidden ${isSalesman ? "grid-cols-3" : "grid-cols-4"}`}>
         {bar.map((n) => {
           const Icon = navIcon[n.k] ?? LayoutDashboard;
           return (
@@ -200,7 +201,7 @@ function MobileNav({ nav }: { nav: { to: string; k: Key }[] }) {
               <span className="break-words text-center leading-tight">{t("more")}</span>
             </button>
           </SheetTrigger>
-          <SheetContent side="left" className="w-64 p-0">
+          <SheetContent side={isSalesman ? "bottom" : "left"} className={isSalesman ? "rounded-t-3xl border-t-0 px-4 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] pt-3" : "w-64 p-0"}>
             <SheetHeader className="border-b p-4">
               <SheetTitle className="flex items-center gap-2">
                 <img src={LOGO_URL} alt={t("companyName")} className="h-8 w-8 shrink-0 rounded-md object-contain" />
