@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 export function SrLocationShare({ salesmanId }: { salesmanId: string }) {
   const qc = useQueryClient();
   const watchId = useRef<number | null>(null);
+  const lastSentAt = useRef(0);
   const [sharing, setSharing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [lastPoint, setLastPoint] = useState<{ latitude: number; longitude: number; accuracy: number } | null>(null);
@@ -42,6 +43,8 @@ export function SrLocationShare({ salesmanId }: { salesmanId: string }) {
     if (!window.isSecureContext) { toast.error("Location ব্যবহারের জন্য HTTPS প্রয়োজন"); return; }
     setBusy(true);
     const onPosition = async (position: GeolocationPosition) => {
+      if (Date.now() - lastSentAt.current < 12000) return;
+      lastSentAt.current = Date.now();
       const point = {
         salesman_id: salesmanId,
         latitude: position.coords.latitude,
@@ -63,6 +66,7 @@ export function SrLocationShare({ salesmanId }: { salesmanId: string }) {
       (error) => {
         setBusy(false);
         setSharing(false);
+        void supabase.from("sr_locations").update({ is_sharing: false, updated_at: new Date().toISOString() }).eq("salesman_id", salesmanId);
         const message = error.code === 1 ? "Location permission অনুমোদন করুন" : error.code === 2 ? "বর্তমান লোকেশন পাওয়া যায়নি" : "Location পেতে সময় শেষ হয়েছে";
         toast.error(message);
       },
