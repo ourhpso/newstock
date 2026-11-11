@@ -33,6 +33,7 @@ export function SrLocationShare({ salesmanId }: { salesmanId: string }) {
   function stop() {
     if (watchId.current !== null) navigator.geolocation.clearWatch(watchId.current);
     watchId.current = null;
+    try { localStorage.removeItem("sr-location-sharing-consent"); } catch { /* storage may be unavailable */ }
     setSharing(false);
     void supabase.from("sr_locations").update({ is_sharing: false, updated_at: new Date().toISOString() }).eq("salesman_id", salesmanId);
     toast.success("লোকেশন শেয়ারিং বন্ধ হয়েছে");
