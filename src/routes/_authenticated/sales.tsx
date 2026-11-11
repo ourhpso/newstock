@@ -54,7 +54,6 @@ function Sales() {
     },
   });
   const [business] = useBusiness();
-  const online = useOnline();
   const [rid, setRid] = useState("");
   const [retailerSearch,setRetailerSearch]=useState("");
   const filteredRetailers=retailers.filter(r=>!retailerSearch.trim()||[r.name,r.phone,r.address].some(v=>String(v??"").toLowerCase().includes(retailerSearch.trim().toLowerCase())));
