@@ -32,7 +32,7 @@ function Settings() {
   const { data: me } = useMe();
   const qc = useQueryClient();
   const online = useOnline();
-  const pending = usePendingSyncCount();
+  const pending = usePendingSyncCount(me?.id ?? null);
   const [business, saveBusiness] = useBusiness();
   const [company, setCompany] = useState(business);
   const [password, setPassword] = useState("");
@@ -50,7 +50,7 @@ function Settings() {
     setBusy(true); try { await action(); } catch (e) { toast.error((e as Error).message); } finally { setBusy(false); }
   }
   async function download() {
-    if (getQueue().length) throw new Error(t("queueGuard"));
+    if (getQueue(me?.id ?? null).length) throw new Error(t("queueGuard"));
     const snapshot = parseBusinessBackup(await exportData());
     const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob); const a = document.createElement("a");
@@ -96,14 +96,14 @@ function Settings() {
       {pending > 0 && (
         <div className="space-y-2">
           <h3 className="text-sm font-semibold">{t("queueEntries")}</h3>
-          {getQueue().map((e) => (
+          {getQueue(me?.id ?? null).map((e) => (
             <div key={e.id} className="flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2 text-sm">
               <span className="font-medium">{e.op.kind}</span>
               <span className="text-muted-foreground">{formatDateTime(e.createdAt)}</span>
               {e.attempts > 0 && <span className="text-muted-foreground">{t("attempts")}: {e.attempts}</span>}
               {e.lastError && <span className="min-w-0 flex-1 break-words text-destructive">{e.lastError}</span>}
               <span className="flex-1" />
-              <Button size="sm" variant="ghost" onClick={() => removeQueueEntry(e.id)}>{t("delete")}</Button>
+              <Button size="sm" variant="ghost" onClick={() => removeQueueEntry(e.id, me?.id ?? null)}>{t("delete")}</Button>
             </div>
           ))}
         </div>
