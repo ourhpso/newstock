@@ -6,7 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Printer } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useMe, useRetailers, useRetailerLedgers, useSalesmanSummary } from "@/lib/me";
+import { useMe, useRetailers, useRetailerLedgers, useSalesmanSummary, useSalesmen } from "@/lib/me";
 import { useT } from "@/lib/i18n";
 import { money } from "@/lib/imei";
 import { useBusiness } from "@/lib/business";
@@ -70,7 +70,7 @@ function Sales() {
   const held = summary?.products.filter((p) => p.hand > 0).map((p) => p.product_id) ?? [];
   const ledger = ledgers.find((l) => l.id === rid);
   const needsCreditApproval = !!ledger && ledger.credit_limit !== null && ledger.due + Math.max(0, total - paidN) > ledger.credit_limit;
-  const activeException = creditExceptions.find((x) => x.id === exceptionId) ?? creditExceptions.find((x) => x.retailer_id === rid && (x.status === "approved" || x.status === "pending"));
+  const activeException = creditExceptions.find((x) => x.id === exceptionId && x.retailer_id === rid) ?? creditExceptions.find((x) => x.retailer_id === rid && (x.status === "approved" || x.status === "pending"));
   const invalid = !rid || !cart.length || busy || disc < 0 || disc > cartTotal || (discountMode === "percent" && discountValue > 100) || paidN < 0 || paidN > total || cart.some((l) => !(l.unit_price > 0)) || (needsCreditApproval && activeException?.status !== "approved");
 
   async function submit() {
