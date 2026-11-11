@@ -281,6 +281,7 @@ describe("accounting chain (all migrations, PGlite)", () => {
     await as(owner);
     await db.query("SELECT finalize_workflow_request($1)",[issueId]);
     expect((await one<{ status: string }>("SELECT status FROM approval_requests WHERE id=$1",[issueId])).status).toBe("completed");
+    await as(sr);
     const returnId = (await one<{ submit_workflow_request: string }>(
       "SELECT submit_workflow_request('return',$1,$2::jsonb,'Approval test return',$3)",
       [sr, JSON.stringify({ items: [{ product_id: button, qty: 1, imeis: [], damaged: false }], date: "2026-11-11" }), "a0000000-0000-4000-8000-000000000303"],
@@ -299,6 +300,8 @@ describe("accounting chain (all migrations, PGlite)", () => {
     await db.query("UPDATE retailers SET credit_limit=NULL WHERE id=$1",[retailer]);
     await db.query("SELECT receive_stock($1,2,'opening','discount test stock','2026-11-11',$2)",[button,"a0000000-0000-4000-8000-000000000304"]);
     await as(sr);
+    const oldDue = Number((await one<{ retailer_due: string }>("SELECT retailer_due($1)",[retailer])).retailer_due);
+    if (oldDue > 0) await db.query("SELECT record_retailer_payment($1,$2,'cash',NULL,'2026-11-11',$3)",[retailer,oldDue,"a0000000-0000-4000-8000-000000000308"]);
     const items = [{ product_id: button, unit_price: 3000, qty: 1, imeis: [] }];
     const percentSale = (await one<{ record_sale_v2: string }>(
       "SELECT record_sale_v2($1,$2::jsonb,0,'percent',10,'2026-11-11',NULL,$3)",
