@@ -1,7 +1,22 @@
-/** Extract a 15-digit IMEI from scanned text (barcodes may include prefixes). */
+/** Extract a 15-digit IMEI from plain text or common barcode payloads.
+ * Some scanners prepend AIM identifiers (for example ]C1) or GS1 application
+ * identifiers. Search every 15-digit window and prefer a valid Luhn candidate
+ * instead of blindly taking the first 15 digits (which may include a prefix).
+ */
 export function extractImei(raw: string): string {
-  const m = raw.replace(/\s/g, "").match(/\d{15}/);
-  return m ? m[0] : raw.replace(/\D/g, "");
+  let digits = raw.replace(/\D/g, "");
+  // GS1 phone labels may encode AI (01) + 14-digit GTIN + AI (21) + serial.
+  // Strip those fixed-width identifiers before looking for the IMEI.
+  if (digits.startsWith("01") && digits.length >= 33) digits = digits.slice(18);
+  // Some Code 128 readers include the AIM ]C1 symbology identifier in text.
+  else if (digits.startsWith("101") && digits.length >= 34) digits = digits.slice(19);
+  if (digits.length <= 15) return digits;
+  for (let start = 0; start <= digits.length - 15; start++) {
+    const candidate = digits.slice(start, start + 15);
+    if (isValidImeiFormat(candidate)) return candidate;
+  }
+  // Keep a deterministic candidate so the UI can show a useful checksum error.
+  return digits.slice(0, 15);
 }
 
 /** IMEI must be 15 digits and pass the Luhn checksum. */
