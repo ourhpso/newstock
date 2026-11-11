@@ -45,6 +45,14 @@ function Sales() {
       return data ?? [];
     },
   });
+  const { data: creditExceptionEvents = [] } = useQuery<any[]>({
+    queryKey: ["credit-limit-exception-events"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).from("credit_limit_exception_events").select("*").order("created_at", { ascending: false }).limit(300);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
   const [business] = useBusiness();
   const online = useOnline();
   const [rid, setRid] = useState("");
@@ -69,7 +77,7 @@ function Sales() {
   const held = summary?.products.filter((p) => p.hand > 0).map((p) => p.product_id) ?? [];
   const ledger = ledgers.find((l) => l.id === rid);
   const needsCreditApproval = !!ledger && ledger.credit_limit !== null && ledger.due + Math.max(0, total - paidN) > ledger.credit_limit;
-  const activeException = creditExceptions.find((x) => x.id === exceptionId && x.retailer_id === rid) ?? creditExceptions.find((x) => x.retailer_id === rid && (x.status === "approved" || x.status === "pending"));
+  const activeException = creditExceptions.find((x) => x.id === exceptionId && x.retailer_id === rid) ?? creditExceptions.find((x) => x.retailer_id === rid && (x.status === "approved" || x.status === "pending" || x.status === "rejected"));
   const invalid = !rid || !cart.length || busy || disc < 0 || disc > cartTotal || (discountMode === "percent" && discountValue > 100) || paidN < 0 || paidN > total || cart.some((l) => !(l.unit_price > 0)) || (needsCreditApproval && activeException?.status !== "approved");
 
   async function submit() {
@@ -153,15 +161,17 @@ function Sales() {
           </div>
         </div>
       )}
-      {me.isAdmin && creditExceptions.filter((x) => x.status === "pending").map((x) => {
+      {me.isAdmin && creditExceptions.map((x) => {
         const retailer = retailers.find((r) => r.id === x.retailer_id);
         const salesman = salesmen.find((v) => v.id === x.salesman_id);
         return <div key={x.id} className="space-y-2 rounded-xl border bg-card p-3">
-          <b>Credit-limit approval · {retailer?.name ?? x.retailer_id}</b>
+          <div className="flex flex-wrap items-center justify-between gap-2"><b>Credit-limit approval · {retailer?.name ?? x.retailer_id}</b><span className="rounded-full bg-muted px-2 py-1 text-xs">{x.status}</span></div>
           <p className="text-sm text-muted-foreground">SR: {salesman?.full_name ?? x.salesman_id} · Current due: {money(Number(x.current_due))} · Over limit: {money(Number(x.over_limit_amount))}</p>
           <p className="text-sm">Reason: {x.reason}</p>
-          <Input value={adminDecisionReason} onChange={(e) => setAdminDecisionReason(e.target.value)} placeholder="Decision reason (at least 3 characters)" />
-          <div className="flex gap-2"><Button size="sm" disabled={adminDecisionReason.trim().length < 3} onClick={() => decideCreditException(x.id,true)}>Approve</Button><Button size="sm" variant="destructive" disabled={adminDecisionReason.trim().length < 3} onClick={() => decideCreditException(x.id,false)}>Reject</Button></div>
+          {x.status === "pending" && <><Input value={adminDecisionReason} onChange={(e) => setAdminDecisionReason(e.target.value)} placeholder="Decision reason (at least 3 characters)" />
+          <div className="flex gap-2"><Button size="sm" disabled={adminDecisionReason.trim().length < 3} onClick={() => decideCreditException(x.id,true)}>Approve</Button><Button size="sm" variant="destructive" disabled={adminDecisionReason.trim().length < 3} onClick={() => decideCreditException(x.id,false)}>Reject</Button></div></>}
+          {x.decided_at && <p className="text-xs text-muted-foreground">Decision: {x.decided_by} · {new Date(x.decided_at).toLocaleString("en-GB")} · {x.decision_reason}</p>}
+          {creditExceptionEvents.filter((e) => e.exception_id === x.id).map((e) => <p key={e.id} className="text-xs text-muted-foreground">{new Date(e.created_at).toLocaleString("en-GB")} · {e.action} · {e.actor_id} · {e.reason ?? ""}</p>)}
         </div>;
       })}
       <SearchHistoryBar value={retailerSearch} onChange={setRetailerSearch} historyKey="sales-retailers" placeholder="Search customer/dealer name or phone…"/>
