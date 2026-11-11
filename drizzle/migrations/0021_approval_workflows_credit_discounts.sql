@@ -341,7 +341,7 @@ begin
   price:=coalesce((it->>'unit_price')::numeric,p.price);
   if price<=0 then raise exception 'Unit price must be positive for %',p.name; end if;
   if p.is_smartphone then
-   if jsonb_typeof(it->'imeis')<>'array' or jsonb_array_length(it->'imeis')<=0 or nvl((it->>'qty')::int,0)<>jsonb_array_length(it->'imeis') then raise exception 'Smartphone quantity must match scanned IMEIs'; end if;
+   if jsonb_typeof(it->'imeis')<>'array' or jsonb_array_length(it->'imeis')<=0 or coalesce((it->>'qty')::int,0)<>jsonb_array_length(it->'imeis') then raise exception 'Smartphone quantity must match scanned IMEIs'; end if;
    for im in select jsonb_array_elements_text(it->'imeis') loop
     update public.imei_units set status='sold',retailer_id=_retailer
      where imei=im and product_id=p.id and status='with_salesman' and salesman_id=me;
