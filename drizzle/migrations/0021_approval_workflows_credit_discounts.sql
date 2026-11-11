@@ -211,6 +211,7 @@ begin
   if lim is null or due_after-lim>e.over_limit_amount then raise exception 'Retailer due changed; request a new approval'; end if;
   perform set_config('app.credit_exception_id',_exception_id::text,true);
   sid:=public.record_sale(_retailer,_items,_paid,disc,_date,_op);
+  update public.credit_limit_exceptions set status='consumed',consumed_at=now() where id=_exception_id and status='approved';
   perform set_config('app.credit_exception_id','',true);
   return sid;
  end if;
