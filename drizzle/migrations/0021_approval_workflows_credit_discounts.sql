@@ -181,10 +181,10 @@ begin
   if coalesce((it->>'unit_price')::numeric,p.price)<=0 then raise exception 'Unit price must be positive'; end if;
   if p.is_smartphone then
    if coalesce(jsonb_typeof(it->'imeis'),'')<>'array' or jsonb_array_length(it->'imeis')<=0
-      or coalesce((it->>'qty')::int,0)<>jsonb_array_length(it->'imeis') then raise exception 'Smartphone quantity must match scanned IMEIs'; end if;
+      or coalesce((it->>'qty')::numeric,0)<>jsonb_array_length(it->'imeis') then raise exception 'Smartphone quantity must match scanned IMEIs'; end if;
    gross:=gross+jsonb_array_length(it->'imeis')*coalesce((it->>'unit_price')::numeric,p.price);
   else
-   if coalesce((it->>'qty')::numeric,0)<=0 then raise exception 'Invalid quantity'; end if;
+   if coalesce((it->>'qty')::numeric,0)<=0 or (it->>'qty')::numeric<>trunc((it->>'qty')::numeric) then raise exception 'Quantity must be a positive whole number'; end if;
    gross:=gross+coalesce((it->>'qty')::numeric,0)*coalesce((it->>'unit_price')::numeric,p.price);
   end if;
  end loop;
@@ -230,10 +230,10 @@ begin
   if coalesce((it->>'unit_price')::numeric,p.price)<=0 then raise exception 'Unit price must be positive'; end if;
   if p.is_smartphone then
    if coalesce(jsonb_typeof(it->'imeis'),'')<>'array' or jsonb_array_length(it->'imeis')<=0
-      or coalesce((it->>'qty')::int,0)<>jsonb_array_length(it->'imeis') then raise exception 'Smartphone quantity must match scanned IMEIs'; end if;
+      or coalesce((it->>'qty')::numeric,0)<>jsonb_array_length(it->'imeis') then raise exception 'Smartphone quantity must match scanned IMEIs'; end if;
    gross:=gross+jsonb_array_length(it->'imeis')*coalesce((it->>'unit_price')::numeric,p.price);
   else
-   if coalesce((it->>'qty')::numeric,0)<=0 then raise exception 'Invalid quantity'; end if;
+   if coalesce((it->>'qty')::numeric,0)<=0 or (it->>'qty')::numeric<>trunc((it->>'qty')::numeric) then raise exception 'Quantity must be a positive whole number'; end if;
    gross:=gross+coalesce((it->>'qty')::numeric,0)*coalesce((it->>'unit_price')::numeric,p.price);
   end if;
  end loop;
@@ -345,7 +345,7 @@ begin
   price:=coalesce((it->>'unit_price')::numeric,p.price);
   if price<=0 then raise exception 'Unit price must be positive for %',p.name; end if;
   if p.is_smartphone then
-   if coalesce(jsonb_typeof(it->'imeis'),'')<>'array' or jsonb_array_length(it->'imeis')<=0 or coalesce((it->>'qty')::int,0)<>jsonb_array_length(it->'imeis') then raise exception 'Smartphone quantity must match scanned IMEIs'; end if;
+   if coalesce(jsonb_typeof(it->'imeis'),'')<>'array' or jsonb_array_length(it->'imeis')<=0 or coalesce((it->>'qty')::numeric,0)<>jsonb_array_length(it->'imeis') then raise exception 'Smartphone quantity must match scanned IMEIs'; end if;
    for im in select jsonb_array_elements_text(it->'imeis') loop
     update public.imei_units set status='sold',retailer_id=_retailer
      where imei=im and product_id=p.id and status='with_salesman' and salesman_id=me;
@@ -357,6 +357,7 @@ begin
     tot:=tot+price;
    end loop;
   else
+   if coalesce((it->>'qty')::numeric,0)<=0 or (it->>'qty')::numeric<>trunc((it->>'qty')::numeric) then raise exception 'Quantity must be a positive whole number'; end if;
    n:=(it->>'qty')::int;
    if n<=0 or public.holding_qty(me,p.id)<n then raise exception 'Not enough % in hand',p.name; end if;
    insert into public.stock_movements(salesman_id,product_id,kind,qty,unit_price,cost_price,sale_id,retailer_id,txn_date)
