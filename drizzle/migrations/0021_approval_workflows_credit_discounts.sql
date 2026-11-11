@@ -33,6 +33,7 @@ create table if not exists public.approval_events (
 create index if not exists approval_events_request_created_idx on public.approval_events(request_id,created_at);
 alter table public.approval_requests enable row level security;
 alter table public.approval_events enable row level security;
+revoke all on public.approval_requests,public.approval_events from public,anon,authenticated;
 grant select on public.approval_requests,public.approval_events to authenticated;
 drop policy if exists approval_requests_read on public.approval_requests;
 create policy approval_requests_read on public.approval_requests for select to authenticated
@@ -136,6 +137,7 @@ create table if not exists public.credit_limit_exceptions (
 );
 create index if not exists credit_limit_exceptions_status_created_idx on public.credit_limit_exceptions(status,created_at desc);
 alter table public.credit_limit_exceptions enable row level security;
+revoke all on public.credit_limit_exceptions from public,anon,authenticated;
 grant select on public.credit_limit_exceptions to authenticated;
 drop policy if exists credit_limit_exceptions_read on public.credit_limit_exceptions;
 create policy credit_limit_exceptions_read on public.credit_limit_exceptions for select to authenticated
@@ -253,6 +255,7 @@ create table if not exists public.credit_limit_exception_events (
 create index if not exists credit_limit_exception_events_created_idx
  on public.credit_limit_exception_events(exception_id,created_at);
 alter table public.credit_limit_exception_events enable row level security;
+revoke all on public.credit_limit_exception_events from public,anon,authenticated;
 grant select on public.credit_limit_exception_events to authenticated;
 drop policy if exists credit_limit_exception_events_read on public.credit_limit_exception_events;
 create policy credit_limit_exception_events_read on public.credit_limit_exception_events for select to authenticated
@@ -274,6 +277,7 @@ end $$;
 drop trigger if exists credit_limit_exception_audit on public.credit_limit_exceptions;
 create trigger credit_limit_exception_audit after insert or update of status on public.credit_limit_exceptions
  for each row execute function public.log_credit_limit_exception_event();
+revoke all on function public.log_credit_limit_exception_event() from public,anon,authenticated;
 
 -- Replace the legacy sale function with the same stock/IMEI validation plus a
 -- narrowly scoped exception check. Only record_sale_v2 sets this transaction-local
