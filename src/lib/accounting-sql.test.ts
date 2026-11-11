@@ -287,6 +287,7 @@ describe("accounting chain (all migrations, PGlite)", () => {
       [sr, JSON.stringify({ items: [{ product_id: button, qty: 1, imeis: [], damaged: false }], date: "2026-11-11" }), "a0000000-0000-4000-8000-000000000303"],
     )).submit_workflow_request;
     expect((await one<{ status: string }>("SELECT status FROM approval_requests WHERE id=$1",[returnId])).status).toBe("pending_admin");
+    await as(owner);
     await db.query("SELECT decide_workflow_request($1,true,'Return verified')",[returnId]);
     expect((await one<{ status: string }>("SELECT status FROM approval_requests WHERE id=$1",[returnId])).status).toBe("completed");
     const actions = await one<{ actions: string[] }>("SELECT array_agg(action ORDER BY created_at) actions FROM approval_events WHERE request_id IN ($1,$2)",[issueId,returnId]);
