@@ -69,9 +69,9 @@ function Sales() {
   const paidN = Number(paid || 0);
   const held = summary?.products.filter((p) => p.hand > 0).map((p) => p.product_id) ?? [];
   const ledger = ledgers.find((l) => l.id === rid);
-  const invalid = !rid || !cart.length || busy || disc < 0 || disc > cartTotal || (discountMode === "percent" && discountValue > 100) || paidN < 0 || paidN > total || cart.some((l) => !(l.unit_price > 0));
+  const invalid = !rid || !cart.length || busy || disc < 0 || disc > cartTotal || (discountMode === "percent" && discountValue > 100) || paidN < 0 || paidN > total || cart.some((l) => !(l.unit_price > 0)) || (needsCreditApproval && activeException?.status !== "approved");
   const needsCreditApproval = !!ledger && ledger.credit_limit !== null && ledger.due + Math.max(0, total - paidN) > ledger.credit_limit;
-  const activeException = creditExceptions.find((x) => x.id === exceptionId) ?? creditExceptions.find((x) => x.retailer_id === rid && x.status === "approved");
+  const activeException = creditExceptions.find((x) => x.id === exceptionId) ?? creditExceptions.find((x) => x.retailer_id === rid && (x.status === "approved" || x.status === "pending"));
 
   async function submit() {
     if (busy || !me?.active || (!me.isAdmin && !me.permissions.sales)) return;
@@ -83,7 +83,7 @@ function Sales() {
         _retailer: rid,
         _items: cart.map((l) => ({ product_id: l.product_id, qty: l.qty, unit_price: l.unit_price, imeis: l.imeis })),
         _paid: paidN, _discount_mode: discountMode, _discount_value: discountValue,
-        _date: date || null, _exception_id: activeException?.status === "approved" ? activeException.id : null,
+        _date: date || null, _exception_id: needsCreditApproval && activeException?.status === "approved" ? activeException.id : null,
         _op: crypto.randomUUID(),
       });
       if (result.error) { toast.error(result.error.message); return; }
