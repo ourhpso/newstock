@@ -42,6 +42,7 @@ export function SrLocationShare({ salesmanId }: { salesmanId: string }) {
     if (!navigator.geolocation) { toast.error("এই ডিভাইসে Location সাপোর্ট নেই"); return; }
     if (!window.isSecureContext) { toast.error("Location ব্যবহারের জন্য HTTPS প্রয়োজন"); return; }
     setBusy(true);
+    try { localStorage.setItem("sr-location-sharing-consent", "true"); } catch { /* sharing still works without storage */ }
     const onPosition = async (position: GeolocationPosition) => {
       if (Date.now() - lastSentAt.current < 12000) return;
       lastSentAt.current = Date.now();
@@ -66,6 +67,7 @@ export function SrLocationShare({ salesmanId }: { salesmanId: string }) {
       (error) => {
         setBusy(false);
         setSharing(false);
+        try { localStorage.removeItem("sr-location-sharing-consent"); } catch { /* storage may be unavailable */ }
         void supabase.from("sr_locations").update({ is_sharing: false, updated_at: new Date().toISOString() }).eq("salesman_id", salesmanId);
         const message = error.code === 1 ? "Location permission অনুমোদন করুন" : error.code === 2 ? "বর্তমান লোকেশন পাওয়া যায়নি" : "Location পেতে সময় শেষ হয়েছে";
         toast.error(message);
@@ -75,6 +77,12 @@ export function SrLocationShare({ salesmanId }: { salesmanId: string }) {
     setSharing(true);
     toast.info("লোকেশন শেয়ারিং চালু হয়েছে। অ্যাপ খোলা থাকলে লোকেশন আপডেট হবে।");
   }
+
+  useEffect(() => {
+    let optedIn = false;
+    try { optedIn = localStorage.getItem("sr-location-sharing-consent") === "true"; } catch { /* storage may be unavailable */ }
+    if (permission === "granted" && optedIn && !sharing && watchId.current === null) void start();
+  }, [permission]);
 
   return (
     <section className="overflow-hidden rounded-2xl border bg-card shadow-sm">
