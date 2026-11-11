@@ -306,7 +306,7 @@ begin
  perform set_config('app.via_rpc','on',true);
  if _op is not null then select id into sid from public.sales where client_op_id=_op; if sid is not null then return sid; end if; end if;
  if disc<0 or coalesce(_paid,0)<0 then raise exception 'Invalid discount or paid amount'; end if;
- select credit_limit into lim from public.retailers where id=_retailer and salesman_id=me;
+ select credit_limit into lim from public.retailers where id=_retailer and salesman_id=me for update;
  if not found then raise exception 'retailer not yours'; end if;
  insert into public.sales(salesman_id,retailer_id,total,paid,discount,invoice_no,client_op_id,txn_date)
  values(me,_retailer,0,coalesce(_paid,0),disc,public.next_doc_no('invoice'),_op,coalesce(_date,(now() at time zone 'Asia/Dhaka')::date)) returning id into sid;
