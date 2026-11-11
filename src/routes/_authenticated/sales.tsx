@@ -77,7 +77,14 @@ function Sales() {
   const ledger = ledgers.find((l) => l.id === rid);
   const needsCreditApproval = !!ledger && ledger.credit_limit !== null && ledger.due + Math.max(0, total - paidN) > ledger.credit_limit;
   const activeException = creditExceptions.find((x) => x.id === exceptionId && x.retailer_id === rid) ?? creditExceptions.find((x) => x.retailer_id === rid && (x.status === "approved" || x.status === "pending" || x.status === "rejected"));
-  const invalid = !rid || !cart.length || busy || disc < 0 || disc > cartTotal || (discountMode === "percent" && discountValue > 100) || paidN < 0 || paidN > total || cart.some((l) => !(l.unit_price > 0)) || (needsCreditApproval && activeException?.status !== "approved");
+  const saleItems = cart.map((l) => ({ product_id: l.product_id, qty: l.qty, unit_price: l.unit_price, imeis: l.imeis }));
+  const exceptionMatchesSale = !!activeException && JSON.stringify(activeException.payload?.items) === JSON.stringify(saleItems)
+    && Number(activeException.payload?.paid) === paidN
+    && activeException.payload?.discount_mode === discountMode
+    && Number(activeException.payload?.discount_value) === discountValue
+    && (activeException.payload?.date ?? null) === (date || null);
+  const approvedException = activeException?.status === "approved" && exceptionMatchesSale;
+  const invalid = !rid || !cart.length || busy || disc < 0 || disc > cartTotal || (discountMode === "percent" && discountValue > 100) || paidN < 0 || paidN > total || cart.some((l) => !(l.unit_price > 0)) || (needsCreditApproval && !approvedException);
 
   async function submit() {
     if (busy || !me?.active || (!me.isAdmin && !me.permissions.sales)) return;
@@ -89,7 +96,7 @@ function Sales() {
         _retailer: rid,
         _items: cart.map((l) => ({ product_id: l.product_id, qty: l.qty, unit_price: l.unit_price, imeis: l.imeis })),
         _paid: paidN, _discount_mode: discountMode, _discount_value: discountValue,
-        _date: date || null, _exception_id: needsCreditApproval && activeException?.status === "approved" ? activeException.id : null,
+        _date: date || null, _exception_id: needsCreditApproval && approvedException ? activeException.id : null,
         _op: crypto.randomUUID(),
       });
       if (result.error) { toast.error(result.error.message); return; }
@@ -188,7 +195,7 @@ function Sales() {
       {needsCreditApproval && <div className="space-y-2 rounded-xl border border-destructive/40 bg-destructive/5 p-3">
         <p className="text-sm font-semibold">এই বিক্রিতে রিটেইলারের ক্রেডিট সীমা অতিক্রম হবে। Admin অনুমোদন ছাড়া বিক্রি সম্পন্ন হবে না।</p>
         <p className="text-xs text-muted-foreground">বর্তমান বকেয়া: {money(ledger?.due ?? 0)} · সীমা: {money(ledger?.credit_limit ?? 0)} · সীমার অতিরিক্ত: {money(Math.max(0,(ledger?.due ?? 0)+total-paidN-(ledger?.credit_limit ?? 0)))}</p>
-        {activeException?.status === "approved" ? <p className="text-sm font-semibold text-success">Admin অনুমোদন দিয়েছেন। এখন বিক্রি সম্পন্ন করতে পারবেন।</p> : activeException?.status === "pending" ? <p className="text-sm">অনুমোদনের অপেক্ষায় · Request: {activeException.id}</p> : <><Input value={exceptionReason} onChange={(e) => setExceptionReason(e.target.value)} placeholder="ক্রেডিট সীমা ছাড়ের কারণ লিখুন" /><Button type="button" variant="secondary" disabled={exceptionReason.trim().length < 3 || !online} onClick={requestCreditException}>Admin-এর অনুমোদন চান</Button></>}
+        {approvedException ? <p className="text-sm font-semibold text-success">Admin অনুমোদন দিয়েছেন। এখন বিক্রি সম্পন্ন করতে পারবেন।</p> : activeException?.status === "pending" ? <p className="text-sm">অনুমোদনের অপেক্ষায় · Request: {activeException.id}</p> : <><Input value={exceptionReason} onChange={(e) => setExceptionReason(e.target.value)} placeholder="ক্রেডিট সীমা ছাড়ের কারণ লিখুন" /><Button type="button" variant="secondary" disabled={exceptionReason.trim().length < 3 || !online} onClick={requestCreditException}>Admin-এর অনুমোদন চান</Button></>}
       </div>}
 
       <div className="grid grid-cols-2 gap-3 rounded-xl border bg-card p-4 sm:grid-cols-4">
