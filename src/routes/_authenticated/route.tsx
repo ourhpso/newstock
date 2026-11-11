@@ -77,13 +77,13 @@ function Layout() {
   return (
     <div className="min-h-screen pb-20 md:pb-0">
       <header className="sticky top-0 z-20 border-b bg-primary text-primary-foreground">
-        <div className="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-3 py-3 sm:px-4">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-3 py-3 sm:px-4">
           <div className="flex min-w-0 items-center gap-2.5">
             <img src={LOGO_URL} alt={t("companyName")} className="h-10 w-10 shrink-0 rounded-md bg-card object-contain p-0.5 sm:h-12 sm:w-12" />
             <div className="min-w-0">
-            <div className="break-words font-display text-base font-bold sm:text-lg">{t("companyName")}</div>
-            <div className="break-words text-xs leading-relaxed opacity-90 sm:text-sm">{t("appName")}</div>
-            <div className="hidden text-xs opacity-80 sm:block">{t("companyAddress")} · {t("companyPhone")}</div>
+              <div className="break-words font-display text-base font-bold sm:text-lg">{t("companyName")}</div>
+              <div className="break-words text-xs leading-relaxed opacity-90 sm:text-sm">{t("appName")}</div>
+              <div className="hidden text-xs opacity-80 sm:block">{t("companyAddress")} · {t("companyPhone")}</div>
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-1">
@@ -92,18 +92,69 @@ function Layout() {
             <Button size="sm" variant="secondary" onClick={() => setLang(lang === "bn" ? "en" : "bn")}>{lang === "bn" ? "EN" : "বাং"}</Button>
             <Button size="sm" variant="secondary" className="px-2" onClick={signOut}>{t("signOut")}</Button>
           </div>
-          <nav className="col-span-2 hidden flex-wrap gap-1 md:flex">
-            {nav.map((n) => (
-              <Link key={n.to} to={n.to} className="rounded-md px-3 py-1.5 text-sm hover:bg-primary-foreground/10" activeProps={{ className: "bg-accent text-accent-foreground" }}>
-                {t(n.k)}
-              </Link>
-            ))}
-          </nav>
         </div>
       </header>
+      <DesktopSidebar nav={nav} />
       <main className="mx-auto min-w-0 max-w-6xl px-3 py-5 sm:px-4">{me?.active ? <Outlet /> : me ? <p className="text-destructive">{t("accountDisabled")}</p> : null}</main>
       <MobileNav nav={nav} />
     </div>
+  );
+}
+
+/**
+ * Desktop navigation stays collapsed to a slim left-edge handle until hovered
+ * or keyboard-focused. Selecting a destination closes it immediately.
+ */
+function DesktopSidebar({ nav }: { nav: { to: string; k: Key }[] }) {
+  const { t } = useT();
+  const [open, setOpen] = useState(false);
+  const currentPath = useRouterState({ select: (r) => r.location.pathname });
+  useEffect(() => setOpen(false), [currentPath]);
+  return (
+    <aside
+      className="group fixed inset-y-0 left-0 z-40 hidden md:block"
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+      onFocusCapture={() => setOpen(true)}
+      onBlurCapture={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpen(false);
+      }}
+    >
+      <div className={`h-full overflow-hidden border-r bg-card/95 shadow-xl backdrop-blur transition-[width] duration-200 ease-out ${open ? "w-64" : "w-3"}`}>
+        <div className={`flex h-full flex-col ${open ? "opacity-100" : "pointer-events-none opacity-0"} transition-opacity duration-150`}>
+          <div className="flex h-16 items-center gap-3 border-b px-4">
+            <img src={LOGO_URL} alt={t("companyName")} className="h-9 w-9 shrink-0 rounded-md object-contain" />
+            <span className="truncate text-sm font-bold">{t("menu")}</span>
+          </div>
+          <nav aria-label={t("menu")} className="flex-1 space-y-1 overflow-y-auto p-2">
+            {nav.map((item) => {
+              const Icon = navIcon[item.k] ?? LayoutDashboard;
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  onClick={() => setOpen(false)}
+                  className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  activeProps={{ className: "bg-accent font-semibold text-accent-foreground" }}
+                >
+                  <Icon className="h-5 w-5 shrink-0" />
+                  <span className="truncate">{t(item.k)}</span>
+                </Link>
+              );
+            })}
+          </nav>
+          <div className="border-t px-4 py-3 text-xs text-muted-foreground">{t("appName")}</div>
+        </div>
+      </div>
+      <button
+        type="button"
+        aria-label={t("menu")}
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+        onFocus={() => setOpen(true)}
+        className={`absolute left-0 top-1/2 h-16 w-3 -translate-y-1/2 rounded-r-md border border-l-0 bg-primary/80 shadow-sm transition-colors hover:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${open ? "opacity-0" : "opacity-100"}`}
+      />
+    </aside>
   );
 }
 

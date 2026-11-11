@@ -51,10 +51,10 @@ export function DashboardAlerts({ data, isAdmin }: { data: DashboardInsights; is
           </div>
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
             {lowStock.map((p) => (
-              <div key={p.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-l-2 border-destructive py-2 pl-3">
+              <Link key={p.id} to="/products" className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-l-2 border-destructive py-2 pl-3 transition-colors hover:bg-destructive/5">
                 <div className="min-w-0 break-words"><div className="font-semibold">{p.name} {p.model}</div><div className="text-xs text-muted-foreground">{t("stockThreshold")}: {p.low_stock_threshold}</div></div>
                 <div className="text-right text-destructive"><div className="text-xs">{t("stock")}</div><div className="text-xl font-bold">{formatInteger(p.qty)}</div></div>
-              </div>
+              </Link>
             ))}
           </div>
         </section>

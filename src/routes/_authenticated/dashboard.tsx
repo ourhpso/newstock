@@ -1,5 +1,5 @@
 import { pageHead } from "@/lib/page-head";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useMe, useSalesmen } from "@/lib/me";
@@ -76,12 +76,12 @@ function AdminDash() {
           {salesmen.map((s) => {
             const cash = (agg?.paidBy[s.id] ?? 0) + (agg?.collectedBy[s.id] ?? 0) - (agg?.depBy[s.id] ?? 0);
             return (
-              <div key={s.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-muted px-3 py-2 text-sm">
+              <Link key={s.id} to="/salesmen" className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-muted px-3 py-2 text-sm transition-colors hover:bg-accent/40">
                 <span className="font-semibold">{s.full_name}</span>
                 <span>{t("sales")}: {money(agg?.salesBy[s.id])}</span>
                 <span>{t("deposited")}: {money(agg?.depBy[s.id])}</span>
                 <span className="font-bold text-accent-foreground">{t("cashInHand")}: {money(cash)}</span>
-              </div>
+              </Link>
             );
           })}
           {salesmen.length === 0 && <p className="text-sm text-muted-foreground">{t("noData")}</p>}
