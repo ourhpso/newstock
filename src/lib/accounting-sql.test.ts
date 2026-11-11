@@ -267,4 +267,69 @@ describe("accounting chain (all migrations, PGlite)", () => {
     expect((await one<{ n: number }>(`SELECT count(*)::int n FROM retailers WHERE id='${retailer2}'`)).n).toBe(1);
     expect((await one<{ n: number }>("SELECT count(*)::int n FROM purchases")).n).toBe(0);
   });
+
+  it("stock issue and SR-originated return require dual approval with an audit trail", async () => {
+    await as(owner);
+    await db.query("SELECT receive_stock($1,2,'opening','approval test stock','2026-11-11',$2)", [button, "a0000000-0000-4000-8000-000000000301"]);
+    const issueId = (await one<{ submit_workflow_request: string }>(
+      "SELECT submit_workflow_request('issue',$1,$2::jsonb,'Approval test issue',$3)",
+      [sr, JSON.stringify({ items: [{ product_id: button, qty: 1 }], date: "2026-11-11" }), "a0000000-0000-4000-8000-000000000302"],
+    )).submit_workflow_request;
+    expect((await one<{ status: string }>("SELECT status FROM approval_requests WHERE id=$1",[issueId])).status).toBe("pending_sr");
+    await as(sr);
+    await db.query("SELECT confirm_stock_issue_receipt($1)",[issueId]);
+    await as(owner);
+    await db.query("SELECT finalize_workflow_request($1)",[issueId]);
+    expect((await one<{ status: string }>("SELECT status FROM approval_requests WHERE id=$1",[issueId])).status).toBe("completed");
+    const returnId = (await one<{ submit_workflow_request: string }>(
+      "SELECT submit_workflow_request('return',$1,$2::jsonb,'Approval test return',$3)",
+      [sr, JSON.stringify({ items: [{ product_id: button, qty: 1, imeis: [], damaged: false }], date: "2026-11-11" }), "a0000000-0000-4000-8000-000000000303"],
+    )).submit_workflow_request;
+    expect((await one<{ status: string }>("SELECT status FROM approval_requests WHERE id=$1",[returnId])).status).toBe("pending_admin");
+    await db.query("SELECT decide_workflow_request($1,true,'Return verified')",[returnId]);
+    expect((await one<{ status: string }>("SELECT status FROM approval_requests WHERE id=$1",[returnId])).status).toBe("completed");
+    const actions = await one<{ actions: string[] }>("SELECT array_agg(action ORDER BY created_at) actions FROM approval_events WHERE request_id IN ($1,$2)",[issueId,returnId]);
+    expect(actions.actions).toContain("sr_confirmed");
+    expect(actions.actions).toContain("admin_finalized");
+    expect(actions.actions).toContain("approved_and_finalized");
+  });
+
+  it("server validates percentage discounts and consumes exact Admin-approved credit exceptions once", async () => {
+    await as(owner);
+    await db.query("UPDATE retailers SET credit_limit=NULL WHERE id=$1",[retailer]);
+    await db.query("SELECT receive_stock($1,2,'opening','discount test stock','2026-11-11',$2)",[button,"a0000000-0000-4000-8000-000000000304"]);
+    await as(sr);
+    const items = [{ product_id: button, unit_price: 3000, qty: 1, imeis: [] }];
+    const percentSale = (await one<{ record_sale_v2: string }>(
+      "SELECT record_sale_v2($1,$2::jsonb,0,'percent',10,'2026-11-11',NULL,$3)",
+      [retailer,JSON.stringify(items),"a0000000-0000-4000-8000-000000000305"],
+    )).record_sale_v2;
+    const percentFigures = await one<{ total: string; discount: string }>("SELECT total,discount FROM sales WHERE id=$1",[percentSale]);
+    expect(Number(percentFigures.total)).toBe(2700);
+    expect(Number(percentFigures.discount)).toBe(300);
+    await db.query("SELECT record_retailer_payment($1,2700,'cash',NULL,'2026-11-11',$2)",[retailer,"a0000000-0000-4000-8000-000000000306"]);
+    await as(owner);
+    await db.query("UPDATE retailers SET credit_limit=1000 WHERE id=$1",[retailer]);
+    await as(sr);
+    const exceptionId = (await one<{ request_credit_limit_exception: string }>(
+      "SELECT request_credit_limit_exception($1,$2::jsonb,0,'fixed',0,'2026-11-11','Urgent approved sale')",
+      [retailer,JSON.stringify(items)],
+    )).request_credit_limit_exception;
+    const exception = await one<{ current_due: string; over_limit_amount: string }>(
+      "SELECT current_due,over_limit_amount FROM credit_limit_exceptions WHERE id=$1",[exceptionId],
+    );
+    expect(Number(exception.current_due)).toBe(0);
+    expect(Number(exception.over_limit_amount)).toBe(2000);
+    await as(owner);
+    await db.query("SELECT decide_credit_limit_exception($1,true,'Approved for this exact sale')",[exceptionId]);
+    await as(sr);
+    const approvedSale = (await one<{ record_sale_v2: string }>(
+      "SELECT record_sale_v2($1,$2::jsonb,0,'fixed',0,'2026-11-11',$3,$4)",
+      [retailer,JSON.stringify(items),exceptionId,"a0000000-0000-4000-8000-000000000307"],
+    )).record_sale_v2;
+    expect(Number((await one<{ total: string }>("SELECT total FROM sales WHERE id=$1",[approvedSale])).total)).toBe(3000);
+    expect((await one<{ status: string }>("SELECT status FROM credit_limit_exceptions WHERE id=$1",[exceptionId])).status).toBe("consumed");
+    expect((await one<{ n: number }>("SELECT count(*)::int n FROM credit_limit_exception_events WHERE exception_id=$1",[exceptionId])).n).toBe(3);
+  });
+
 });
