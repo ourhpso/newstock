@@ -48,18 +48,17 @@ declare rid uuid; st text;
 begin
  if auth.uid() is null or not public.user_is_active(auth.uid()) then raise exception 'Active authenticated account required'; end if;
  if _kind not in ('issue','return','deposit') then raise exception 'Unsupported request'; end if;
- if _kind='issue' then
-  if not public.has_role(auth.uid(),'admin') then raise exception 'Admin only'; end if;
+ if _kind='issue' and not public.has_role(auth.uid(),'admin') then raise exception 'Admin only'; end if;
+ if public.has_role(auth.uid(),'admin') then
   if not public.has_role(_salesman,'salesman') then raise exception 'Salesman not found'; end if;
-  if jsonb_typeof(_payload->'items')<>'array' or jsonb_array_length(_payload->'items')=0 then raise exception 'Items required'; end if;
   st:='pending_sr';
  else
   if _salesman<>auth.uid() or not public.has_role(auth.uid(),'salesman') then raise exception 'Only assigned SR can submit'; end if;
   if _kind='return' and not public.user_can(auth.uid(),'returns') then raise exception 'Return permission denied'; end if;
-  if _kind='return' and (jsonb_typeof(_payload->'items')<>'array' or jsonb_array_length(_payload->'items')=0) then raise exception 'Return items required'; end if;
-  if _kind='deposit' and coalesce((_payload->>'amount')::numeric,0)<=0 then raise exception 'Positive amount required'; end if;
   st:='pending_admin';
  end if;
+ if _kind in ('issue','return') and (jsonb_typeof(_payload->'items')<>'array' or jsonb_array_length(_payload->'items')=0) then raise exception 'At least one item is required'; end if;
+ if _kind='deposit' and coalesce((_payload->>'amount')::numeric,0)<=0 then raise exception 'Positive deposit amount required'; end if;
  if _op is not null then select id into rid from public.approval_requests where client_op_id=_op; if rid is not null then return rid; end if; end if;
  insert into public.approval_requests(request_type,salesman_id,created_by,payload,reason,status,client_op_id)
  values(case _kind when 'issue' then 'stock_issue' when 'return' then 'stock_return' else 'cash_deposit' end,
@@ -74,24 +73,25 @@ language plpgsql security definer set search_path=public as $$
 declare r public.approval_requests%rowtype;
 begin
  select * into r from public.approval_requests where id=_request for update;
- if not found or r.request_type<>'stock_issue' then raise exception 'Issue request not found'; end if;
+ if not found or r.request_type not in ('stock_issue','stock_return','cash_deposit') then raise exception 'Approval request not found'; end if;
  if r.salesman_id<>auth.uid() or not public.has_role(auth.uid(),'salesman') then raise exception 'Assigned SR only'; end if;
  if r.status<>'pending_sr' then raise exception 'Request is not awaiting SR confirmation'; end if;
  update public.approval_requests set status='awaiting_admin_finalize',sr_confirmed_by=auth.uid(),sr_confirmed_at=now() where id=_request;
- insert into public.approval_events(request_id,actor_id,action,reason) values(_request,auth.uid(),'sr_confirmed','Goods received by SR');
+ insert into public.approval_events(request_id,actor_id,action,reason)
+ values(_request,auth.uid(),'sr_confirmed','SR confirmed receipt/handover');
 end $$;
 
 create or replace function public.reject_stock_issue_request(_request uuid,_reason text) returns void
-language plpgsql security definer set search_path=public as $
+language plpgsql security definer set search_path=public as $$
 declare r public.approval_requests%rowtype;
 begin
  if length(trim(coalesce(_reason,'')))<3 then raise exception 'Rejection reason is required'; end if;
  select * into r from public.approval_requests where id=_request for update;
- if not found or r.request_type<>'stock_issue' or r.status<>'pending_sr' then raise exception 'Issue request is not awaiting SR response'; end if;
+ if not found or r.request_type not in ('stock_issue','stock_return','cash_deposit') or r.status<>'pending_sr' then raise exception 'Request is not awaiting SR response'; end if;
  if r.salesman_id<>auth.uid() or not public.has_role(auth.uid(),'salesman') then raise exception 'Assigned SR only'; end if;
  update public.approval_requests set status='rejected',decided_by=auth.uid(),decided_at=now(),decision_reason=_reason where id=_request;
  insert into public.approval_events(request_id,actor_id,action,reason) values(_request,auth.uid(),'sr_rejected',_reason);
-end $;
+end $$;
 
 create or replace function public.decide_workflow_request(_request uuid,_approved boolean,_reason text) returns text
 language plpgsql security definer set search_path=public as $$
@@ -123,11 +123,19 @@ declare r public.approval_requests%rowtype; result text;
 begin
  if not public.has_role(auth.uid(),'admin') then raise exception 'Admin only'; end if;
  select * into r from public.approval_requests where id=_request for update;
- if not found or r.request_type<>'stock_issue' then raise exception 'Issue request not found'; end if;
- if r.status<>'awaiting_admin_finalize' or r.sr_confirmed_at is null then raise exception 'SR receipt confirmation required'; end if;
- result:=public.issue_stock(r.salesman_id,r.payload->'items',nullif(r.payload->>'date','')::date,_request);
- update public.approval_requests set status='completed',result_ref=result,decided_by=auth.uid(),decided_at=now(),decision_reason='Finalized after SR confirmation',finalized_at=now() where id=_request;
- insert into public.approval_events(request_id,actor_id,action,reason,details) values(_request,auth.uid(),'admin_finalized','Finalized after SR confirmation',jsonb_build_object('result_ref',result));
+ if not found or r.status<>'awaiting_admin_finalize' or r.sr_confirmed_at is null then raise exception 'SR confirmation is required before finalization'; end if;
+ if r.request_type='stock_issue' then
+  result:=public.issue_stock(r.salesman_id,r.payload->'items',nullif(r.payload->>'date','')::date,_request);
+ elsif r.request_type='stock_return' then
+  result:=public.return_stock(r.salesman_id,r.payload->'items',nullif(r.payload->>'date','')::date,_request);
+ elsif r.request_type='cash_deposit' then
+  result:=public.record_deposit(r.salesman_id,(r.payload->>'amount')::numeric,coalesce(r.payload->>'method','cash'),
+   r.payload->>'note',nullif(r.payload->>'date','')::date,_request)::text;
+ else raise exception 'Unsupported request type'; end if;
+ update public.approval_requests set status='completed',result_ref=result,decided_by=auth.uid(),decided_at=now(),
+  decision_reason='Finalized after SR confirmation',finalized_at=now() where id=_request;
+ insert into public.approval_events(request_id,actor_id,action,reason,details)
+ values(_request,auth.uid(),'admin_finalized','Finalized after SR confirmation',jsonb_build_object('result_ref',result));
  return result;
 end $$;
 
