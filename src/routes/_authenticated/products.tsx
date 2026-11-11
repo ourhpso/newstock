@@ -41,6 +41,9 @@ function Products() {
   const [stockFilter, setStockFilter] = useState("all");
   const [brandId, setBrandId] = useState("");
   const [modelId, setModelId] = useState("");
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+  const [advancedAdd, setAdvancedAdd] = useState(false);
+  const lastAddTap = useRef(0);
   const { data: counts = {} } = useQuery({
     queryKey: ["imei-counts"],
     queryFn: async () => {
@@ -50,6 +53,15 @@ function Products() {
     },
   });
   const [f, setF] = useState({ price: "", is_smartphone: true, stock_qty: "" });
+  const { data: imeiRows = [] } = useQuery({
+    queryKey: ["product-imeis-list"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).from("imei_units").select("product_id,imei,status").eq("status", "in_stock").order("imei");
+      if (error) throw error;
+      return (data ?? []) as Array<{ product_id: string; imei: string; status: string }>;
+    },
+  });
+  const selectedProduct = products.find((p) => p.id === selectedProductId);
   const [imeiFor, setImeiFor] = useState<string | null>(null);
   const [imeiText, setImeiText] = useState("");
   const imeiTextRef = useRef(imeiText);
@@ -246,46 +258,42 @@ function Products() {
         <div className="flex gap-2"><Button size="sm" variant="outline" onClick={() => document.getElementById("products-excel-import")?.click()}><FileUp className="mr-1 h-4 w-4" />Import Excel</Button><input id="products-excel-import" type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (file) void readImport(file); e.currentTarget.value = ""; }} /><Button size="sm" variant="secondary" onClick={exportStock} disabled={!products.length}><FileSpreadsheet className="mr-1 h-4 w-4" />Export Excel</Button></div>
       </div>
       <SearchHistoryBar value={search} onChange={setSearch} historyKey="products" placeholder="Search product, brand or model…"><Select value={filterBrand} onValueChange={setFilterBrand}><SelectTrigger className="w-[160px]"><SelectValue placeholder="Brand"/></SelectTrigger><SelectContent><SelectItem value="all">All brands</SelectItem>{brands.map(b=><SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}</SelectContent></Select><Select value={stockFilter} onValueChange={setStockFilter}><SelectTrigger className="w-[150px]"><SelectValue placeholder="Stock"/></SelectTrigger><SelectContent><SelectItem value="all">All stock</SelectItem><SelectItem value="in">In stock</SelectItem><SelectItem value="out">Out of stock</SelectItem></SelectContent></Select></SearchHistoryBar>
-      <form onSubmit={add} className="grid gap-3 rounded-xl border bg-card p-4 md:grid-cols-6">
+      <form onSubmit={add} onDoubleClick={() => setAdvancedAdd((v) => !v)} onTouchEnd={() => { const now = Date.now(); if (now - lastAddTap.current < 450) setAdvancedAdd((v) => !v); lastAddTap.current = now; }} className="grid gap-3 rounded-xl border bg-card p-4 md:grid-cols-4">
         <BrandModelFields brandId={brandId} modelId={modelId} onBrandChange={setBrandId} onModelChange={setModelId} allowManage />
         <Input required type="number" min={0} step="0.01" placeholder={t("price")} value={f.price} onChange={(e) => setF({ ...f, price: e.target.value })} />
-        <label className="flex items-center gap-2 text-sm"><Switch checked={f.is_smartphone} onCheckedChange={(v) => setF({ ...f, is_smartphone: v })} />{f.is_smartphone ? t("smartphone") : t("buttonPhone")}</label>
-        {!f.is_smartphone ? <Input type="number" min={0} step={1} placeholder={t("stock")} value={f.stock_qty} onChange={(e) => setF({ ...f, stock_qty: e.target.value })} /> : <div />}
-        <Button disabled={adding}>{t("add")}</Button>
+        <Button disabled={adding || !brandId || !modelId || !f.price}>{t("add")}</Button>
+        {advancedAdd && <>
+          <label className="flex items-center gap-2 text-sm"><Switch checked={f.is_smartphone} onCheckedChange={(v) => setF({ ...f, is_smartphone: v })} />{f.is_smartphone ? t("smartphone") : t("buttonPhone")}</label>
+          {!f.is_smartphone && <Input type="number" min={0} step={1} placeholder={t("stock")} value={f.stock_qty} onChange={(e) => setF({ ...f, stock_qty: e.target.value })} />}
+        </>}
+        <p className="text-xs text-muted-foreground md:col-span-4">{advancedAdd ? "অতিরিক্ত অপশন দেখানো হচ্ছে — লুকাতে আবার ডাবল ট্যাপ/ক্লিক করুন।" : "প্রাথমিকভাবে শুধু ব্র্যান্ড, মডেল ও দাম। অতিরিক্ত ফিল্ড দেখতে ডাবল ট্যাপ/ক্লিক করুন।"}</p>
       </form>
       <div className="grid gap-3 md:grid-cols-2">
-        {products.map((p) => (
-          <div key={p.id} className="rounded-xl border bg-card p-4">
-            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
-              <div className="min-w-0 break-words">
-                <div className="font-display text-lg font-bold">{brands.find((b) => b.id === (p as any).brand_id)?.name ?? "OTHER"} {models.find((m) => m.id === (p as any).model_id)?.name ?? p.model ?? p.name} <span className="text-sm font-normal text-muted-foreground">{p.name}</span></div>
-                <div className="text-sm text-muted-foreground">{p.is_smartphone ? t("smartphone") : t("buttonPhone")} · {money(p.price)} · {t("costPrice")} {money(p.cost_price)}</div>
-                <ProductCatalogAssignment product={p} onSaved={refresh} />
-              </div>
-              <div className="text-right"><div className="text-xs text-muted-foreground">{t("stock")}</div><div className="font-display text-2xl font-bold">{formatInteger(p.is_smartphone ? counts[p.id] ?? 0 : p.stock_qty)}</div></div>
-            </div>
-            <div className="mt-3 flex gap-2">
-              <RecordActions table="products" id={p.id} fields={[{ key: "name", label: "name", value: p.name }, { key: "model", label: "model", value: p.model }, { key: "price", label: "price", value: Number(p.price), type: "number" }]} />
-              {p.is_smartphone ? (
-                <Button size="sm" variant="secondary" onClick={() => setImeiFor(p.id)}>{t("addImei")}</Button>
-              ) : (
-                <>
-                  <Input className="h-8 w-24" type="number" step={1} value={addQty[p.id] ?? ""} onChange={(e) => setAddQty({ ...addQty, [p.id]: e.target.value })} />
-                  <Button size="sm" variant="secondary" onClick={() => addStock(p.id)}>± {t("adjustment")}</Button>
-                </>
-              )}
-            </div>
-            <div className="mt-3 border-t pt-3">
-              <Label htmlFor={`limit-${p.id}`}>{t("stockThreshold")}</Label>
-              <div className="mt-1 grid grid-cols-[minmax(0,1fr)_auto] gap-2">
-                <Input id={`limit-${p.id}`} type="number" min={0} step={1} value={limits[p.id] ?? String(p.low_stock_threshold)} onChange={(e) => setLimits({ ...limits, [p.id]: e.target.value })} />
-                <Button size="sm" variant="outline" disabled={savingLimit === p.id} onClick={() => saveLimit(p.id, p.low_stock_threshold)}>{t("save")}</Button>
-              </div>
-              {p.low_stock_threshold === 0 && <p className="mt-1 text-xs text-muted-foreground">{t("thresholdUnset")}</p>}
-            </div>
-          </div>
-        ))}
+        {filteredProducts.map((p) => {
+          const brand = brands.find((b) => b.id === (p as any).brand_id)?.name ?? "OTHER";
+          const model = models.find((m) => m.id === (p as any).model_id)?.name ?? p.model ?? p.name;
+          const stock = p.is_smartphone ? counts[p.id] ?? 0 : p.stock_qty;
+          const imeis = imeiRows.filter((row) => row.product_id === p.id).map((row) => row.imei);
+          return <button type="button" key={p.id} onClick={() => setSelectedProductId(p.id)} className="w-full rounded-xl border bg-card p-4 text-left transition-colors hover:border-primary/60 hover:bg-accent/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="break-words font-display text-lg font-bold">{brand} {model}</div><div className="mt-1 text-sm">{t("price")}: <strong>{money(p.price)}</strong></div></div><div className="shrink-0 text-right"><div className="text-xs text-muted-foreground">{t("stock")}</div><div className="font-display text-2xl font-bold">{formatInteger(stock)}</div></div></div>
+            {imeis.length > 0 && <div className="mt-3 border-t pt-2"><div className="mb-1 text-xs text-muted-foreground">IMEI ({imeis.length})</div><div className="break-all text-sm font-mono leading-6">{imeis.join(" · ")}</div></div>}
+          </button>;
+        })}
       </div>
+      <Dialog open={!!selectedProduct} onOpenChange={(open) => !open && setSelectedProductId(null)}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
+          {selectedProduct && <><DialogHeader><DialogTitle>{brands.find((b) => b.id === (selectedProduct as any).brand_id)?.name ?? "OTHER"} {models.find((m) => m.id === (selectedProduct as any).model_id)?.name ?? selectedProduct.model ?? selectedProduct.name}</DialogTitle></DialogHeader>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between rounded-lg bg-muted/50 p-3"><div><div className="text-xs text-muted-foreground">{t("price")}</div><strong>{money(selectedProduct.price)}</strong></div><div className="text-right"><div className="text-xs text-muted-foreground">{t("stock")}</div><strong>{formatInteger(selectedProduct.is_smartphone ? counts[selectedProduct.id] ?? 0 : selectedProduct.stock_qty)}</strong></div></div>
+              <div className="flex flex-wrap items-center gap-2"><RecordActions table="products" id={selectedProduct.id} fields={[{ key: "name", label: "name", value: selectedProduct.name }, { key: "model", label: "model", value: selectedProduct.model }, { key: "price", label: "price", value: Number(selectedProduct.price), type: "number" }]} /><span className="text-xs text-muted-foreground">প্রোডাক্ট আপডেট / ডিলিট</span></div>
+              <ProductCatalogAssignment product={selectedProduct} onSaved={refresh} />
+              {selectedProduct.is_smartphone ? <Button size="sm" variant="secondary" onClick={() => setImeiFor(selectedProduct.id)}>{t("addImei")}</Button> : <div className="flex gap-2"><Input className="h-9 w-28" type="number" step={1} value={addQty[selectedProduct.id] ?? ""} onChange={(e) => setAddQty({ ...addQty, [selectedProduct.id]: e.target.value })} /><Button size="sm" variant="secondary" onClick={() => addStock(selectedProduct.id)}>± {t("adjustment")}</Button></div>}
+              <div className="space-y-2 border-t pt-3"><Label htmlFor={`limit-${selectedProduct.id}`}>{t("stockThreshold")}</Label><div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2"><Input id={`limit-${selectedProduct.id}`} type="number" min={0} step={1} value={limits[selectedProduct.id] ?? String(selectedProduct.low_stock_threshold)} onChange={(e) => setLimits({ ...limits, [selectedProduct.id]: e.target.value })} /><Button size="sm" variant="outline" disabled={savingLimit === selectedProduct.id} onClick={() => saveLimit(selectedProduct.id, selectedProduct.low_stock_threshold)}>{t("save")}</Button></div>{selectedProduct.low_stock_threshold === 0 && <p className="text-xs text-muted-foreground">{t("thresholdUnset")}</p>}</div>
+              {imeiRows.filter((row) => row.product_id === selectedProduct.id).length > 0 && <div className="space-y-1 border-t pt-3"><Label>Available IMEI</Label><div className="break-all rounded-md bg-muted p-2 font-mono text-sm">{imeiRows.filter((row) => row.product_id === selectedProduct.id).map((row) => row.imei).join("\n")}</div></div>}
+            </div>
+          </>}
+        </DialogContent>
+      </Dialog>
       <Dialog open={importOpen} onOpenChange={setImportOpen}>
         <DialogContent className="max-w-3xl">
           <DialogHeader><DialogTitle>Excel import preview</DialogTitle></DialogHeader>
