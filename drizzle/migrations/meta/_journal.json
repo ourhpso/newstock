@@ -148,6 +148,41 @@
       "when": 1794410290792,
       "tag": "0022_enforce_approval_only_stock_cash",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1794480000000,
+      "tag": "0023_permanent_activity_history_and_retention",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1794480100000,
+      "tag": "0024_refine_activity_history_actor_scope",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1794480200000,
+      "tag": "0025_include_business_settings_activity_history",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1794480300000,
+      "tag": "0026_guard_activity_history_non_uuid_entity_keys",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1794480300000,
+      "tag": "0026_guard_activity_history_non_uuid_entity_keys",
+      "breakpoints": true
     }
   ]
 }

@@ -15,6 +15,7 @@ import { SrLocationShare } from "@/components/SrLocationShare";
 import { Button } from "@/components/ui/button";
 import { FileSpreadsheet } from "lucide-react";
 import { exportCsv } from "@/lib/export";
+import { ActivityHistory } from "@/components/ActivityHistory";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => pageHead("ড্যাশবোর্ড", "FIROZA ENTERPRISE stock, sales, deposits and retailer balances."),
@@ -37,6 +38,7 @@ function Dashboard() {
         <DashboardKpis data={insights.data} isAdmin={false} />
         <SrLocationShare salesmanId={me.id} />
         <SalesmanSummary salesmanId={me.id} />
+        <ActivityHistory />
       </div>
     );
   }
@@ -73,6 +75,7 @@ function AdminDash() {
         </Button>
       </div>
       {insights && <DashboardKpis data={insights} isAdmin />}
+      <ActivityHistory />
       <div className="rounded-xl border bg-card p-4">
         <h2 className="mb-3 font-display font-bold">{t("salesmen")}</h2>
         <div className="grid gap-2">
