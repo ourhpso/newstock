@@ -65,7 +65,7 @@ const salesNav: { to: string; k: Key }[] = [
 ];
 
 function Layout() {
-  const { data: me } = useMe();
+  const { data: me, isPending: mePending, isError: meError, error: meErrorValue, refetch: retryMe } = useMe();
   const { t, lang, setLang } = useT();
   const qc = useQueryClient();
   const navigate = useNavigate();
@@ -97,7 +97,7 @@ function Layout() {
         </div>
       </header>
       <DesktopSidebar nav={nav} />
-      <main className="mx-auto min-w-0 max-w-6xl px-3 py-5 sm:px-4">{me?.active ? <Outlet /> : me ? <p className="text-destructive">{t("accountDisabled")}</p> : null}</main>
+      <main className="mx-auto min-w-0 max-w-6xl px-3 py-5 sm:px-4">{mePending ? <p role="status" className="text-sm text-muted-foreground">{t("loading")}</p> : meError ? <section role="alert" className="space-y-2 rounded-xl border border-destructive/30 p-4"><p className="text-sm text-destructive">{t("loadFailed")}: {(meErrorValue as Error).message}</p><Button size="sm" onClick={() => retryMe()}>{t("retry")}</Button></section> : me?.active ? <Outlet /> : me ? <p className="text-destructive">{t("accountDisabled")}</p> : null}</main>
       <MobileNav nav={nav} isSalesman={!me?.isAdmin} />
     </div>
   );

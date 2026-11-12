@@ -32,7 +32,8 @@ function Sales() {
   const { t } = useT();
   const qc = useQueryClient();
   const { data: me } = useMe();
-  const { data: retailers = [] } = useRetailers();
+  const retailersQuery = useRetailers();
+  const { data: retailers = [], isError: retailersError, error: retailersErrorValue, refetch: retryRetailers } = retailersQuery;
   const { data: ledgers = [] } = useRetailerLedgers();
   const { data: summary } = useSalesmanSummary(me?.id);
   const { data: salesmen = [] } = useSalesmen();
@@ -192,7 +193,9 @@ function Sales() {
           {creditExceptionEvents.filter((e) => e.exception_id === x.id).map((e) => <p key={e.id} className="text-xs text-muted-foreground">{new Date(e.created_at).toLocaleString("en-GB")} · {e.action} · {e.actor_id} · {e.reason ?? ""}</p>)}
         </div>;
       })}
-      <SearchHistoryBar value={retailerSearch} onChange={setRetailerSearch} historyKey="sales-retailers" placeholder="Search customer/dealer name or phone…"/>
+      {retailersError && <section role="alert" className="rounded-xl border border-destructive/30 p-3 text-sm"><p className="text-destructive">রিটেইলারের তালিকা আনা যায়নি: {(retailersErrorValue as Error).message}</p><Button size="sm" variant="outline" className="mt-2" onClick={() => retryRetailers()}>আবার চেষ্টা করুন</Button></section>}
+      {!retailersError && filteredRetailers.length === 0 && <p className="rounded-lg bg-muted p-3 text-sm text-muted-foreground">{t("srNoRetailerHelp")}</p>}
+      <SearchHistoryBar value={retailerSearch} onChange={setRetailerSearch} historyKey="sales-retailers" placeholder="দোকানের নাম বা ফোন নম্বর দিয়ে খুঁজুন"/>
       <Select value={rid} onValueChange={setRid}>
         <SelectTrigger className="w-full sm:w-72"><SelectValue placeholder={t("selectRetailer")} /></SelectTrigger>
         <SelectContent>{filteredRetailers.map((r) => <SelectItem key={r.id} value={r.id}>{r.name}{r.phone ? " · "+r.phone : ""}</SelectItem>)}</SelectContent>
@@ -203,6 +206,7 @@ function Sales() {
           {ledger.credit_limit !== null && <> · {t("creditLimit")}: {money(ledger.credit_limit)}</>}
         </p>
       )}
+      {held.length === 0 && <p className="rounded-lg bg-muted p-3 text-sm text-muted-foreground">{t("srNoStockHelp")}</p>}
       <CartBuilder mode="sale" salesmanId={me.id} cart={cart} setCart={setCart} editPrice onlyProductIds={held} />
       {needsCreditApproval && <div className="space-y-2 rounded-xl border border-destructive/40 bg-destructive/5 p-3">
         <p className="text-sm font-semibold">এই বিক্রিতে রিটেইলারের ক্রেডিট সীমা অতিক্রম হবে। Admin অনুমোদন ছাড়া বিক্রি সম্পন্ন হবে না।</p>
