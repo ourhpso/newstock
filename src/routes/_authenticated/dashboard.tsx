@@ -32,6 +32,7 @@ function Dashboard() {
     return (
       <div className="space-y-6">
         <PageTitle>{t("dashboard")}</PageTitle>
+        <SrWorkGuide salesmanId={me.id} retailerCount={insights.data.retailerCount} />
         <DashboardAlerts data={insights.data} isAdmin={false} />
         <DashboardKpis data={insights.data} isAdmin={false} />
         <SrLocationShare salesmanId={me.id} />
@@ -92,4 +93,26 @@ function AdminDash() {
       {insights && <><DashboardAlerts data={insights} isAdmin /><DealerRiskList /></>}
     </div>
   );
+}
+
+
+function SrWorkGuide({ salesmanId, retailerCount }: { salesmanId: string; retailerCount: number }) {
+  const { t } = useT();
+  const { data } = useSalesmanSummary(salesmanId);
+  const tasks = [
+    ...(data && data.products.length === 0 ? [{ title: t("srNoStockTitle"), detail: t("srNoStockHelp") }] : []),
+    ...(retailerCount === 0 ? [{ title: t("srNoRetailerTitle"), detail: t("srNoRetailerHelp") }] : []),
+    ...(data && data.cashInHand > 0 ? [{ title: t("srDepositTitle"), detail: t("srDepositHelp") }] : []),
+    ...(data && data.products.some((p) => p.hand > 0) ? [{ title: t("srReturnTitle"), detail: t("srReturnHelp") }] : []),
+  ];
+  if (!tasks.length) return null;
+  return <section className="space-y-3 rounded-xl border bg-card p-4">
+    <h2 className="font-display font-bold">{t("srWorkTitle")}</h2>
+    <div className="grid gap-2 sm:grid-cols-2">
+      {tasks.map((task) => <div key={task.title} className="rounded-lg bg-muted p-3">
+        <p className="font-semibold">{task.title}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{task.detail}</p>
+      </div>)}
+    </div>
+  </section>;
 }
