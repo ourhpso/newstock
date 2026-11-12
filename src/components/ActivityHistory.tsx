@@ -67,7 +67,7 @@ export function ActivityHistory() {
   const title = (row: Activity) => labels[row.entity]?.[lang === "bn" ? 0 : 1] ?? row.entity;
   const summary = (row: Activity) => {
     const value = row.after_data ?? row.before_data ?? {};
-    const candidates = [value.name, value.full_name, value.imei, value.invoice_no, value.receipt_no, value.doc_no, value.amount, value.total, value.reason];
+    const candidates = [value["name"], value["full_name"], value["imei"], value["invoice_no"], value["receipt_no"], value["doc_no"], value["amount"], value["total"], value["reason"]];
     return candidates.find((item) => item !== undefined && item !== null && String(item).length > 0)?.toString() ?? row.entity_id ?? title(row);
   };
   const card = (row: Activity) => (
