@@ -1,4 +1,4 @@
-import { useSalesmanSummary } from "@/lib/me";
+import { useMe, useSalesmanSummary } from "@/lib/me";
 import { useT } from "@/lib/i18n";
 import { formatInteger, money } from "@/lib/imei";
 import { Stat } from "./Stat";
@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 
 export function SalesmanSummary({ salesmanId }: { salesmanId: string }) {
   const { t } = useT();
+  const { data: me } = useMe();
   const { data, isPending, isError, error, refetch } = useSalesmanSummary(salesmanId);
   if (isPending) return <p className="text-sm text-muted-foreground">হিসাব ও পণ্যের তথ্য লোড হচ্ছে…</p>;
   if (isError) return <div className="flex flex-wrap items-center gap-2 text-sm text-destructive"><span>তথ্য আনা যায়নি: {(error as Error).message}</span><button type="button" className="underline" onClick={() => refetch()}>আবার চেষ্টা করুন</button></div>;
@@ -34,8 +35,8 @@ export function SalesmanSummary({ salesmanId }: { salesmanId: string }) {
           <TableBody>
             {data.products.length === 0 && (
               <TableRow><TableCell colSpan={6} className="space-y-1 py-5 text-center text-muted-foreground">
-                <div className="font-semibold">{t("srNoStockTitle")}</div>
-                <div className="text-xs">{t("srNoStockHelp")}</div>
+                <div className="font-semibold">{me?.isAdmin ? "এই এস আর-এর নামে এখনো পণ্য বরাদ্দ হয়নি" : t("srNoStockTitle")}</div>
+                <div className="text-xs">{me?.isAdmin ? "মাল দেওয়া পেইজ থেকে পণ্য বরাদ্দ পাঠান। এস আর গ্রহণ নিশ্চিত করার পর এখানে স্টক দেখা যাবে।" : t("srNoStockHelp")}</div>
               </TableCell></TableRow>
             )}
             {data.products.map((p) => (
