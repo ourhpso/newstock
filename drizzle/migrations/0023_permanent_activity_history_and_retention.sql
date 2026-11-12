@@ -1,5 +1,10 @@
 -- Permanent, access-scoped activity history and 30-day settings change-log retention.
-create extension if not exists pg_cron with schema pg_catalog;
+do $
+begin
+  if exists (select 1 from pg_available_extensions where name='pg_cron') then
+    create extension if not exists pg_cron with schema pg_catalog;
+  end if;
+end $;
 
 create table if not exists public.activity_history (
   id uuid primary key default gen_random_uuid(),
@@ -88,11 +93,10 @@ $$;
 revoke all on function public.purge_expired_business_change_history() from public, anon, authenticated;
 grant execute on function public.purge_expired_business_change_history() to service_role;
 
-do $$
+do $
 begin
-  if exists (select 1 from cron.job where jobname='purge-business-change-history-daily') then
-    perform cron.unschedule(jobid) from cron.job where jobname='purge-business-change-history-daily';
+  if to_regnamespace('cron') is not null then
+    execute 'select cron.unschedule(jobid) from cron.job where jobname = ''purge-business-change-history-daily''';
+    execute 'select cron.schedule(''purge-business-change-history-daily'', ''15 18 * * *'', ''select public.purge_expired_business_change_history();'')';
   end if;
-  perform cron.schedule('purge-business-change-history-daily','15 18 * * *',
-    $job$select public.purge_expired_business_change_history();$job$);
-end $$;
+end $;
