@@ -25,7 +25,7 @@ export function ApprovalInbox({ isAdmin, salesmanId }: { isAdmin: boolean; sales
   const qc = useQueryClient();
   const [decisionReason, setDecisionReason] = useState("");
   const [busyId, setBusyId] = useState("");
-  const { data: requests = [], isLoading } = useQuery({
+  const { data: requests = [], isLoading, isError: requestsError, error: requestsErrorValue } = useQuery({
     queryKey: ["approval-requests"],
     queryFn: async () => {
       const { data, error } = await (supabase as any).from("approval_requests").select("*").order("created_at", { ascending: false }).limit(100);
@@ -77,7 +77,8 @@ export function ApprovalInbox({ isAdmin, salesmanId }: { isAdmin: boolean; sales
   }
   const label = (type: ApprovalRequest["request_type"]) => type === "stock_issue" ? "পণ্য বরাদ্দ" : type === "stock_return" ? "অবিক্রীত পণ্য ফেরত" : "নগদ জমা";
   const statusLabel = (status: string) => ({ pending_sr: "এস আর-এর পণ্য গ্রহণ নিশ্চিতকরণ বাকি", awaiting_admin_finalize: "এস আর গ্রহণ নিশ্চিত করেছেন — অ্যাডমিনের চূড়ান্তকরণ বাকি", pending_admin: "অ্যাডমিনের অনুমোদনের অপেক্ষায়", completed: "সম্পন্ন", rejected: "প্রত্যাখ্যাত" } as Record<string, string>)[status] ?? status;
-  if (isLoading) return <section className="rounded-xl border p-4 text-sm text-muted-foreground">অনুমোদন অনুরোধ লোড হচ্ছে…</section>;
+  if (isLoading) return <section className="rounded-xl border p-4 text-sm text-muted-foreground">অনুমোদন ও জমার অনুরোধ লোড হচ্ছে…</section>;
+  if (requestsError) return <section role="alert" className="rounded-xl border border-destructive/30 p-4 text-sm"><p className="text-destructive">অনুরোধের তালিকা আনা যায়নি: {(requestsErrorValue as Error).message}</p></section>;
   if (!visible.length) return <section className="rounded-xl border p-4"><h2 className="font-semibold">অনুমোদন ও অডিট</h2><p className="mt-1 text-sm text-muted-foreground">কোনো অনুমোদন অনুরোধ নেই।</p></section>;
   return <section className="space-y-3 rounded-xl border bg-card p-4">
     <div><h2 className="font-display text-lg font-bold">অনুমোদন ও অডিট ট্রেইল</h2><p className="text-xs text-muted-foreground">কে, কখন, কী সিদ্ধান্ত নিয়েছেন—প্রতিটি ধাপ সংরক্ষিত থাকে।</p></div>
