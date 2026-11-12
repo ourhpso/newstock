@@ -41,7 +41,8 @@ function Retailers() {
   const [search, setSearch] = useState("");
   const [balanceFilter, setBalanceFilter] = useState("all");
   const online = useOnline();
-  const { data: retailers = [] } = useRetailers();
+  const retailersQuery = useRetailers();
+  const { data: retailers = [], isError: retailersError, error: retailersErrorValue, refetch: retryRetailers } = retailersQuery;
   const [business] = useBusiness();
   const [f, setF] = useState({ name: "", phone: "", address: "", credit_limit: "", due_days: "30" });
   const [open, setOpen] = useState<string | null>(null);
@@ -176,6 +177,7 @@ function Retailers() {
           <Button>{t("add")}</Button>
         </form>
       )}
+      {retailersError ? <section role="alert" className="rounded-xl border border-destructive/30 p-3 text-sm"><p className="text-destructive">দোকান/রিটেইলারের তথ্য আনা যায়নি: {(retailersErrorValue as Error).message}</p><Button size="sm" variant="outline" className="mt-2" onClick={() => retryRetailers()}>আবার চেষ্টা করুন</Button></section> : null}
       <div className="space-y-3">
         {retailers.map((r) => {
           const sales = salesOf(r);
@@ -235,7 +237,7 @@ function Retailers() {
             </div>
           );
         })}
-        {visibleRetailers.length === 0 && <p className="text-muted-foreground">{t("noData")}</p>}
+        {!retailersError && visibleRetailers.length === 0 && <p className="rounded-lg bg-muted p-3 text-sm text-muted-foreground">{me?.isAdmin ? "এখনো কোনো রিটেইলার যোগ করা হয়নি। এস আর নির্বাচন করে দোকান/রিটেইলার বরাদ্দ করুন।" : t("srNoRetailerHelp")}</p>}
       </div>
       {printDoc && <PrintSheet onDone={() => setPrintDoc(null)}>{printDoc}</PrintSheet>}
     </div>
