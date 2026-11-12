@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useMe } from "@/lib/me";
@@ -36,7 +36,8 @@ export function ActivityHistory() {
   const { data: me } = useMe();
   const { t, lang } = useT();
   const [showOlder, setShowOlder] = useState(false);
-  const [sectionTaps, setSectionTaps] = useState(0);
+  const tapCount = useRef(0);
+  const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selected, setSelected] = useState<Activity | null>(null);
   const { data = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["activity-history", me?.id],
@@ -45,7 +46,7 @@ export function ActivityHistory() {
       const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
       const { data, error } = await (supabase as any).from("activity_history")
         .select("id,event_type,entity,entity_id,actor_id,salesman_id,before_data,after_data,created_at")
-        .gte("created_at", since).order("created_at", { ascending: false }).limit(500);
+        .gte("created_at", since).order("created_at", { ascending: false }).limit(1000);
       if (error) throw error;
       return (data ?? []) as Activity[];
     },
@@ -57,6 +58,12 @@ export function ActivityHistory() {
       older: data.filter((row) => new Date(row.created_at).getTime() < threeDays),
     };
   }, [data]);
+  const registerSectionTap = () => {
+    tapCount.current += 1;
+    if (tapCount.current >= 3) { setShowOlder((value) => !value); tapCount.current = 0; }
+    if (tapTimer.current) clearTimeout(tapTimer.current);
+    tapTimer.current = setTimeout(() => { tapCount.current = 0; }, 1500);
+  };
   const title = (row: Activity) => labels[row.entity]?.[lang === "bn" ? 0 : 1] ?? row.entity;
   const summary = (row: Activity) => {
     const value = row.after_data ?? row.before_data ?? {};
@@ -73,7 +80,7 @@ export function ActivityHistory() {
   );
   if (!me) return null;
   return (
-    <section className="space-y-3 rounded-xl border bg-card p-4" onClick={() => setSectionTaps((n) => { const next = n + 1; if (next >= 3) { setShowOlder((v) => !v); return 0; } return next; })}>
+    <section className="space-y-3 rounded-xl border bg-card p-4" onClick={registerSectionTap}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div><h2 className="font-display font-bold">{lang === "bn" ? "সাম্প্রতিক আদান-প্রদান ও হিসাবের ইতিহাস" : "Recent activity & account history"}</h2>
           <p className="text-xs text-muted-foreground">{lang === "bn" ? "সর্বশেষ ৩ দিন · বিস্তারিত দেখতে কার্ডে চাপ দিন" : "Last 3 days · Select a card for details"}</p></div>
@@ -86,7 +93,7 @@ export function ActivityHistory() {
       {older.length > 0 && <div className="space-y-2">
         <p className="text-xs text-muted-foreground">{lang === "bn" ? "আগের ২৭ দিনের ইতিহাস লুকানো আছে" : "Previous 27 days are hidden"}</p>
         {showOlder ? <div className="flex gap-2 overflow-x-auto pb-1">{older.map(card)}</div> :
-          <Button type="button" variant="outline" size="sm" onClick={(event) => { event.stopPropagation(); setSectionTaps((n) => n + 1 >= 3 ? 0 : n + 1); if (sectionTaps + 1 >= 3) setShowOlder(true); }}>
+          <Button type="button" variant="outline" size="sm" onClick={(event) => { event.stopPropagation(); registerSectionTap(); }}>
             {lang === "bn" ? "পুরোনো ইতিহাস দেখতে সেকশনে ৩ বার ট্যাপ করুন" : "Tap this section 3 times to reveal older history"}
           </Button>}
       </div>}
