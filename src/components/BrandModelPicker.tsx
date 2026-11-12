@@ -147,13 +147,14 @@ export function BrandModelProductPicker({
 }
 
 export function BrandModelFields({
-  brandId, modelId, onBrandChange, onModelChange, allowManage = false,
+  brandId, modelId, onBrandChange, onModelChange, allowManage = false, manageVisible = true,
 }: {
   brandId: string;
   modelId: string;
   onBrandChange: (id: string) => void;
   onModelChange: (id: string) => void;
   allowManage?: boolean;
+  manageVisible?: boolean;
 }) {
   const db = supabase as any;
   const qc = useQueryClient();
@@ -235,8 +236,8 @@ export function BrandModelFields({
         <SelectTrigger><SelectValue placeholder="Brand" /></SelectTrigger>
         <SelectContent>{brands.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}</SelectContent>
       </Select>
-      {allowManage && <div className="flex gap-2"><Input value={newBrand} onChange={(e) => setNewBrand(e.target.value)} placeholder="Add another brand" /><Button type="button" size="sm" variant="outline" onClick={addBrand} disabled={!newBrand.trim()}>+</Button></div>}
-      {allowManage && brandId && selectedBrand && <div className="flex flex-wrap gap-2">
+      {allowManage && manageVisible && <div className="flex gap-2"><Input value={newBrand} onChange={(e) => setNewBrand(e.target.value)} placeholder="Add another brand" /><Button type="button" size="sm" variant="outline" onClick={addBrand} disabled={!newBrand.trim()}>+</Button></div>}
+      {allowManage && manageVisible && brandId && selectedBrand && <div className="flex flex-wrap gap-2">
         <Input className="min-w-0 flex-1" value={brandEdit} onChange={(e) => setBrandEdit(e.target.value)} placeholder={selectedBrand.name + " — নতুন নাম"} />
         <Button type="button" size="sm" variant="outline" disabled={!brandEdit.trim()} onClick={renameBrand}>Rename</Button>
         <Button type="button" size="sm" variant="destructive" onClick={deleteBrand}>Delete</Button>
@@ -246,8 +247,8 @@ export function BrandModelFields({
         <SelectTrigger><SelectValue placeholder="Model" /></SelectTrigger>
         <SelectContent>{models.filter((m) => m.brand_id === brandId).map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}</SelectContent>
       </Select>
-      {allowManage && brandId && <div className="flex gap-2"><Input value={newModel} onChange={(e) => setNewModel(e.target.value)} placeholder="Add model for selected brand" /><Button type="button" size="sm" variant="outline" onClick={addModel} disabled={!newModel.trim()}>+</Button></div>}
-      {allowManage && modelId && selectedModel && <div className="flex flex-wrap gap-2">
+      {allowManage && manageVisible && brandId && <div className="flex gap-2"><Input value={newModel} onChange={(e) => setNewModel(e.target.value)} placeholder="Add model for selected brand" /><Button type="button" size="sm" variant="outline" onClick={addModel} disabled={!newModel.trim()}>+</Button></div>}
+      {allowManage && manageVisible && modelId && selectedModel && <div className="flex flex-wrap gap-2">
         <Input className="min-w-0 flex-1" value={modelEdit} onChange={(e) => setModelEdit(e.target.value)} placeholder={selectedModel.name + " — নতুন নাম"} />
         <Button type="button" size="sm" variant="outline" disabled={!modelEdit.trim()} onClick={renameModel}>Rename</Button>
         <Button type="button" size="sm" variant="destructive" onClick={deleteModel}>Delete</Button>
