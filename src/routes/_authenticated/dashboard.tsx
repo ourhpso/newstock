@@ -2,7 +2,7 @@ import { pageHead } from "@/lib/page-head";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useMe, useSalesmen } from "@/lib/me";
+import { useMe, useSalesmen, useSalesmanSummary } from "@/lib/me";
 import { useT } from "@/lib/i18n";
 import { money } from "@/lib/imei";
 import { PageTitle } from "@/components/Stat";
