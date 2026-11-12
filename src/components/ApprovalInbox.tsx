@@ -76,7 +76,11 @@ export function ApprovalInbox({ isAdmin, salesmanId }: { isAdmin: boolean; sales
     } finally { setBusyId(""); }
   }
   const label = (type: ApprovalRequest["request_type"]) => type === "stock_issue" ? "পণ্য বরাদ্দ" : type === "stock_return" ? "অবিক্রীত পণ্য ফেরত" : "নগদ জমা";
-  const statusLabel = (status: string) => ({ pending_sr: "এস আর-এর পণ্য গ্রহণ নিশ্চিতকরণ বাকি", awaiting_admin_finalize: "এস আর গ্রহণ নিশ্চিত করেছেন — অ্যাডমিনের চূড়ান্তকরণ বাকি", pending_admin: "অ্যাডমিনের অনুমোদনের অপেক্ষায়", completed: "সম্পন্ন", rejected: "প্রত্যাখ্যাত" } as Record<string, string>)[status] ?? status;
+  const statusLabel = (status: string, type: ApprovalRequest["request_type"]) => {
+    if (status === "pending_sr") return type === "stock_issue" ? "এস আর-এর পণ্য গ্রহণ নিশ্চিতকরণ বাকি" : "এস আর-এর হস্তান্তর নিশ্চিতকরণ বাকি";
+    if (status === "awaiting_admin_finalize") return "এস আর গ্রহণ নিশ্চিত করেছেন — অ্যাডমিনের চূড়ান্তকরণ বাকি";
+    return ({ pending_admin: "অ্যাডমিনের অনুমোদনের অপেক্ষায়", completed: "সম্পন্ন", rejected: "প্রত্যাখ্যাত" } as Record<string, string>)[status] ?? status;
+  };
   if (isLoading) return <section className="rounded-xl border p-4 text-sm text-muted-foreground">অনুমোদন ও জমার অনুরোধ লোড হচ্ছে…</section>;
   if (requestsError) return <section role="alert" className="rounded-xl border border-destructive/30 p-4 text-sm"><p className="text-destructive">অনুরোধের তালিকা আনা যায়নি: {(requestsErrorValue as Error).message}</p></section>;
   if (!visible.length) return <section className="rounded-xl border p-4"><h2 className="font-semibold">অনুমোদন ও অডিট</h2><p className="mt-1 text-sm text-muted-foreground">কোনো অনুমোদন অনুরোধ নেই।</p></section>;
@@ -100,7 +104,7 @@ export function ApprovalInbox({ isAdmin, salesmanId }: { isAdmin: boolean; sales
       const pricedTotal = knownItems.reduce((sum, line) => sum + (line.lineTotal ?? 0), 0);
       const allPricesKnown = knownItems.every((line) => line.lineTotal != null);
       return <article key={r.id} className="space-y-3 rounded-lg border p-3">
-        <div className="flex flex-wrap items-center justify-between gap-2"><b>{label(r.request_type)}</b><span className="rounded-full bg-muted px-2 py-1 text-xs">{statusLabel(r.status)}</span></div>
+        <div className="flex flex-wrap items-center justify-between gap-2"><b>{label(r.request_type)}</b><span className="rounded-full bg-muted px-2 py-1 text-xs">{statusLabel(r.status, r.request_type)}</span></div>
         <div className="grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
           <span>SR: <b className="text-foreground">{profileById.get(r.salesman_id) ?? r.salesman_id}</b></span>
           <span>অনুরোধকারী: <b className="text-foreground">{profileById.get(r.created_by) ?? r.created_by}</b></span>
