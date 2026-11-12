@@ -14,14 +14,21 @@ export const meQueryOptions = {
   queryKey: ["me"],
   staleTime: 60_000,
   queryFn: async (): Promise<Me | null> => {
-    const { data: s } = await supabase.auth.getSession();
+    const { data: s, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) throw sessionError;
     const user = s.session?.user;
     if (!user) return null;
-    const [{ data: roles }, { data: profile }, { data: override }] = await Promise.all([
+    const [roleResult, profileResult, overrideResult] = await Promise.all([
       supabase.from("user_roles").select("role").eq("user_id", user.id),
       supabase.from("profiles").select("full_name,active").eq("id", user.id).maybeSingle(),
       supabase.from("user_permission_overrides").select("permissions").eq("user_id", user.id).maybeSingle(),
     ]);
+    if (roleResult.error) throw roleResult.error;
+    if (profileResult.error) throw profileResult.error;
+    if (overrideResult.error) throw overrideResult.error;
+    const roles = roleResult.data;
+    const profile = profileResult.data;
+    const override = overrideResult.data;
     const isAdmin = !!roles?.some((r) => r.role === "admin");
     const active = profile?.active === true;
     const permissions = { ...DEFAULT_PERMISSIONS };
@@ -51,10 +58,12 @@ export function useSalesmen() {
   return useQuery({
     queryKey: ["salesmen"],
     queryFn: async () => {
-      const { data: roles } = await supabase.from("user_roles").select("user_id").eq("role", "salesman");
+      const { data: roles, error: rolesError } = await supabase.from("user_roles").select("user_id").eq("role", "salesman");
+      if (rolesError) throw rolesError;
       const ids = (roles ?? []).map((r) => r.user_id);
       if (!ids.length) return [];
-      const { data } = await supabase.from("profiles").select("*").in("id", ids).order("full_name");
+      const { data, error } = await supabase.from("profiles").select("*").in("id", ids).order("full_name");
+      if (error) throw error;
       return data ?? [];
     },
   });
@@ -101,7 +110,11 @@ export function useSalesmanSummary(salesmanId: string | undefined) {
 export function useRetailers() {
   return useQuery({
     queryKey: ["retailers"],
-    queryFn: async () => (await supabase.from("retailers").select("*").order("name")).data ?? [],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("retailers").select("*").order("name");
+      if (error) throw error;
+      return data ?? [];
+    },
   });
 }
 
