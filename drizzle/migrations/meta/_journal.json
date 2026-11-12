@@ -169,6 +169,13 @@
       "when": 1794480200000,
       "tag": "0025_include_business_settings_activity_history",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1794480300000,
+      "tag": "0026_guard_activity_history_non_uuid_entity_keys",
+      "breakpoints": true
     }
   ]
 }
