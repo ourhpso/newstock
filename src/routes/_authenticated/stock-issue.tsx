@@ -48,7 +48,7 @@ function StockIssue() {
     try {
       const result = await runOrQueue({ kind: "issue_stock", payload: { _salesman: sid, _items: cart.map((l) => ({ product_id: l.product_id, qty: l.qty, imeis: l.imeis })), _date: date || null } }, !online, me.id);
       if (result.s === "error") { toast.error(result.error); return; }
-      toast.success(result.s === "queued" ? t("savedOffline") : "ইস্যু অনুরোধ পাঠানো হয়েছে। SR গ্রহণ নিশ্চিত করার পর Admin স্টক চূড়ান্ত করবেন।");
+      toast.success(result.s === "queued" ? t("savedOffline") : "পণ্য বরাদ্দের অনুরোধ পাঠানো হয়েছে। এস আর পণ্য বুঝে পাওয়ার বিষয়টি নিশ্চিত করলে অ্যাডমিন স্টক চূড়ান্ত করবেন।");
       setCart([]);
       qc.invalidateQueries();
     } finally {
