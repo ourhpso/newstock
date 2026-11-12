@@ -162,6 +162,13 @@
       "when": 1794480100000,
       "tag": "0024_refine_activity_history_actor_scope",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1794480200000,
+      "tag": "0025_include_business_settings_activity_history",
+      "breakpoints": true
     }
   ]
 }
