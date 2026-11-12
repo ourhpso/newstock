@@ -134,13 +134,13 @@ function ReturnBox({ salesmanId }: { salesmanId: string }) {
   return (
     <section className="space-y-3 rounded-2xl border-2 border-dashed p-4">
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
-        <h2 className="font-display text-lg font-bold">{t("returnGoods")}</h2>
+        <h2 className="font-display text-lg font-bold">{t("srReturnTitle")}</h2>
         <div className="space-y-1"><Label>{t("date")}</Label><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
       </div>
       {summary && summary.handImeis.length > 0 && (
         <p className="break-words text-xs text-muted-foreground">{t("inHand")} IMEI: {summary.handImeis.map((i) => i.imei).join(", ")}</p>
       )}
-      <CartBuilder mode="return" salesmanId={salesmanId} cart={cart} setCart={setCart} onlyProductIds={held} />
+      {held.length === 0 ? <p className="rounded-lg bg-muted p-3 text-sm text-muted-foreground">{t("srNoReturnHelp")}</p> : <CartBuilder mode="return" salesmanId={salesmanId} cart={cart} setCart={setCart} onlyProductIds={held} />}
       <Button className="w-full" disabled={!cart.length || busy} onClick={submit}>{t("confirm")}</Button>
     </section>
   );
@@ -174,7 +174,7 @@ function DepositBox({ salesmanId }: { salesmanId: string }) {
   }
   return (
     <form onSubmit={submit} className="space-y-3 rounded-2xl border bg-accent/10 p-4">
-      <h2 className="font-display text-lg font-bold">{t("deposit")}</h2>
+      <h2 className="font-display text-lg font-bold">{t("srDepositTitle")}</h2>
       <p className="text-sm">{t("cashInHand")}: <b>{money(cash)}</b></p>
       <div className="grid gap-2 sm:grid-cols-[10rem_9rem_9rem_minmax(0,1fr)_auto]">
         <Input className="w-full" type="number" placeholder={t("amount")} value={amt} onChange={(e) => setAmt(e.target.value)} />
@@ -184,7 +184,7 @@ function DepositBox({ salesmanId }: { salesmanId: string }) {
         </Select>
         <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
         <Input className="flex-1" placeholder="Note" value={note} onChange={(e) => setNote(e.target.value)} />
-        <Button disabled={busy}>{t("save")}</Button>
+        <Button disabled={busy}>{t("srDepositAction")}</Button>
       </div>
     </form>
   );
