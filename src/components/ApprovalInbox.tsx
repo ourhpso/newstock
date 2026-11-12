@@ -88,8 +88,8 @@ export function ApprovalInbox({ isAdmin, salesmanId }: { isAdmin: boolean; sales
       const canDecide = isAdmin && r.request_type !== "stock_issue" && r.status === "pending_admin";
       const ev = events.filter((e) => e.request_id === r.id);
       const payload = r.payload ?? {};
-      const itemLines = Array.isArray(payload.items) ? payload.items as PayloadItem[] : [];
-      const cashAmount = Number(payload.amount ?? 0);
+      const itemLines = Array.isArray(payload["items"]) ? payload["items"] as PayloadItem[] : [];
+      const cashAmount = Number(payload["amount"] ?? 0);
       const knownItems = itemLines.map((item) => {
         const product = item.product_id ? productById.get(item.product_id) : undefined;
         const qty = Number(item.qty ?? item.imeis?.length ?? 0);
@@ -112,9 +112,9 @@ export function ApprovalInbox({ isAdmin, salesmanId }: { isAdmin: boolean; sales
             <p className="text-xs font-semibold text-muted-foreground">নগদ জমার বিবরণ</p>
             <div className="mt-1 grid gap-1 sm:grid-cols-2">
               <p className="text-lg font-bold">{money(cashAmount)}</p>
-              <p className="text-sm">মাধ্যম: {String(payload.method ?? "cash")}</p>
-              <p className="text-sm">তারিখ: {String(payload.date ?? "—")}</p>
-              <p className="text-sm">নোট: {String(payload.note ?? "কোনো নোট নেই")}</p>
+              <p className="text-sm">মাধ্যম: {String(payload["method"] ?? "cash")}</p>
+              <p className="text-sm">তারিখ: {String(payload["date"] ?? "—")}</p>
+              <p className="text-sm">নোট: {String(payload["note"] ?? "কোনো নোট নেই")}</p>
             </div>
           </div>
         ) : (
