@@ -259,14 +259,14 @@ function Products() {
       </div>
       <SearchHistoryBar value={search} onChange={setSearch} historyKey="products" placeholder="Search product, brand or model…"><Select value={filterBrand} onValueChange={setFilterBrand}><SelectTrigger className="w-[160px]"><SelectValue placeholder="Brand"/></SelectTrigger><SelectContent><SelectItem value="all">All brands</SelectItem>{brands.map(b=><SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}</SelectContent></Select><Select value={stockFilter} onValueChange={setStockFilter}><SelectTrigger className="w-[150px]"><SelectValue placeholder="Stock"/></SelectTrigger><SelectContent><SelectItem value="all">All stock</SelectItem><SelectItem value="in">In stock</SelectItem><SelectItem value="out">Out of stock</SelectItem></SelectContent></Select></SearchHistoryBar>
       <form onSubmit={add} onDoubleClick={() => setAdvancedAdd((v) => !v)} onTouchEnd={() => { const now = Date.now(); if (now - lastAddTap.current < 450) setAdvancedAdd((v) => !v); lastAddTap.current = now; }} className="grid gap-3 rounded-xl border bg-card p-4 md:grid-cols-4">
-        <BrandModelFields brandId={brandId} modelId={modelId} onBrandChange={setBrandId} onModelChange={setModelId} allowManage />
+        <BrandModelFields brandId={brandId} modelId={modelId} onBrandChange={setBrandId} onModelChange={setModelId} allowManage manageVisible={advancedAdd} />
         <Input required type="number" min={0} step="0.01" placeholder={t("price")} value={f.price} onChange={(e) => setF({ ...f, price: e.target.value })} />
         <Button disabled={adding || !brandId || !modelId || !f.price}>{t("add")}</Button>
         {advancedAdd && <>
           <label className="flex items-center gap-2 text-sm"><Switch checked={f.is_smartphone} onCheckedChange={(v) => setF({ ...f, is_smartphone: v })} />{f.is_smartphone ? t("smartphone") : t("buttonPhone")}</label>
           {!f.is_smartphone && <Input type="number" min={0} step={1} placeholder={t("stock")} value={f.stock_qty} onChange={(e) => setF({ ...f, stock_qty: e.target.value })} />}
         </>}
-        <p className="text-xs text-muted-foreground md:col-span-4">{advancedAdd ? "অতিরিক্ত অপশন দেখানো হচ্ছে — লুকাতে আবার ডাবল ট্যাপ/ক্লিক করুন।" : "প্রাথমিকভাবে শুধু ব্র্যান্ড, মডেল ও দাম। অতিরিক্ত ফিল্ড দেখতে ডাবল ট্যাপ/ক্লিক করুন।"}</p>
+        <p className="text-xs text-muted-foreground md:col-span-4">{advancedAdd ? "অতিরিক্ত অপশন দেখানো হচ্ছে — লুকাতে আবার ডাবল ট্যাপ/ক্লিক করুন।" : "প্রাথমিকভাবে শুধু ব্র্যান্ড, মডেল ও দাম। ব্র্যান্ড/মডেল যোগ, রিনেম বা ডিলিটসহ অতিরিক্ত অপশন দেখতে এই ফর্মে ডাবল ট্যাপ/ক্লিক করুন।"}</p>
       </form>
       <div className="grid gap-3 md:grid-cols-2">
         {filteredProducts.map((p) => {
