@@ -75,8 +75,8 @@ export function ApprovalInbox({ isAdmin, salesmanId }: { isAdmin: boolean; sales
       await Promise.all([qc.invalidateQueries({ queryKey: ["approval-requests"] }), qc.invalidateQueries({ queryKey: ["approval-events"] }), qc.invalidateQueries()]);
     } finally { setBusyId(""); }
   }
-  const label = (type: ApprovalRequest["request_type"]) => type === "stock_issue" ? "পণ্য ইস্যু" : type === "stock_return" ? "অবিক্রীত পণ্য ফেরত" : "নগদ জমা";
-  const statusLabel = (status: string) => ({ pending_sr: "SR গ্রহণ নিশ্চিত করবে", awaiting_admin_finalize: "SR নিশ্চিত করেছে — Admin চূড়ান্ত করবেন", pending_admin: "Admin অনুমোদনের অপেক্ষায়", completed: "সম্পন্ন", rejected: "প্রত্যাখ্যাত" } as Record<string, string>)[status] ?? status;
+  const label = (type: ApprovalRequest["request_type"]) => type === "stock_issue" ? "পণ্য বরাদ্দ" : type === "stock_return" ? "অবিক্রীত পণ্য ফেরত" : "নগদ জমা";
+  const statusLabel = (status: string) => ({ pending_sr: "এস আর-এর পণ্য গ্রহণ নিশ্চিতকরণ বাকি", awaiting_admin_finalize: "এস আর গ্রহণ নিশ্চিত করেছেন — অ্যাডমিনের চূড়ান্তকরণ বাকি", pending_admin: "অ্যাডমিনের অনুমোদনের অপেক্ষায়", completed: "সম্পন্ন", rejected: "প্রত্যাখ্যাত" } as Record<string, string>)[status] ?? status;
   if (isLoading) return <section className="rounded-xl border p-4 text-sm text-muted-foreground">অনুমোদন অনুরোধ লোড হচ্ছে…</section>;
   if (!visible.length) return <section className="rounded-xl border p-4"><h2 className="font-semibold">অনুমোদন ও অডিট</h2><p className="mt-1 text-sm text-muted-foreground">কোনো অনুমোদন অনুরোধ নেই।</p></section>;
   return <section className="space-y-3 rounded-xl border bg-card p-4">
@@ -138,8 +138,8 @@ export function ApprovalInbox({ isAdmin, salesmanId }: { isAdmin: boolean; sales
         {r.result_ref && <p className="text-xs text-muted-foreground">চূড়ান্ত ডকুমেন্ট: {r.result_ref}</p>}
         {(canDecide || canConfirm) && <Input value={decisionReason} onChange={(e) => setDecisionReason(e.target.value)} placeholder="সিদ্ধান্তের কারণ (কমপক্ষে ৩ অক্ষর)" />}
         <div className="flex flex-wrap gap-2">
-          {canConfirm && <><Button size="sm" disabled={busyId === r.id} onClick={() => act(r.id,"confirm")}>{r.request_type === "stock_issue" ? "পণ্য গ্রহণ নিশ্চিত" : r.request_type === "stock_return" ? "ফেরত পণ্য হস্তান্তর নিশ্চিত" : "নগদ হস্তান্তর নিশ্চিত"}</Button><Button size="sm" variant="destructive" disabled={busyId === r.id || decisionReason.trim().length < 3} onClick={() => act(r.id,"reject_issue")}>অনুরোধ প্রত্যাখ্যান</Button></>}
-          {canFinalize && <Button size="sm" disabled={busyId === r.id} onClick={() => act(r.id,"finalize")}>{r.request_type === "stock_issue" ? "স্টক চূড়ান্ত করুন" : r.request_type === "stock_return" ? "ফেরত স্টক চূড়ান্ত করুন" : "নগদ জমা চূড়ান্ত করুন"}</Button>}
+          {canConfirm && <><Button size="sm" disabled={busyId === r.id} onClick={() => act(r.id,"confirm")}>{r.request_type === "stock_issue" ? "পণ্য বুঝে পেয়েছি" : r.request_type === "stock_return" ? "ফেরত পণ্য বুঝিয়ে দিয়েছি" : "নগদ জমা দিয়েছি"}</Button><Button size="sm" variant="destructive" disabled={busyId === r.id || decisionReason.trim().length < 3} onClick={() => act(r.id,"reject_issue")}>অনুরোধ প্রত্যাখ্যান</Button></>}
+          {canFinalize && <Button size="sm" disabled={busyId === r.id} onClick={() => act(r.id,"finalize")}>{r.request_type === "stock_issue" ? "পণ্য বরাদ্দ চূড়ান্ত করুন" : r.request_type === "stock_return" ? "ফেরত পণ্য গ্রহণ চূড়ান্ত করুন" : "নগদ জমা চূড়ান্ত করুন"}</Button>}
           {canDecide && <><Button size="sm" disabled={busyId === r.id || decisionReason.trim().length < 3} onClick={() => act(r.id,"approve")}>অনুমোদন</Button><Button size="sm" variant="destructive" disabled={busyId === r.id || decisionReason.trim().length < 3} onClick={() => act(r.id,"reject")}>প্রত্যাখ্যান</Button></>}
         </div>
         {ev.length > 0 && <div className="border-t pt-2"><p className="mb-1 text-xs font-semibold">সিদ্ধান্তের অডিট ইতিহাস</p>{ev.map((e) => <p key={e.id} className="text-xs text-muted-foreground">{dateTime(e.created_at)} · {e.action} · {profileById.get(e.actor_id) ?? e.actor_id}{e.reason ? ` · কারণ: ${e.reason}` : ""}</p>)}</div>}
