@@ -274,9 +274,9 @@ function Products() {
           const model = models.find((m) => m.id === (p as any).model_id)?.name ?? p.model ?? p.name;
           const stock = p.is_smartphone ? counts[p.id] ?? 0 : p.stock_qty;
           const imeis = imeiRows.filter((row) => row.product_id === p.id).map((row) => row.imei);
-          return <button type="button" key={p.id} onClick={() => setSelectedProductId(p.id)} className="w-full rounded-xl border bg-card p-4 text-left transition-colors hover:border-primary/60 hover:bg-accent/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          return <button type="button" key={p.id} onClick={() => setSelectedProductId(p.id)} onDoubleClick={() => setSelectedProductId(p.id)} className="w-full rounded-xl border bg-card p-4 text-left transition-colors hover:border-primary/60 hover:bg-accent/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="break-words font-display text-lg font-bold">{brand} {model}</div><div className="mt-1 text-sm">{t("price")}: <strong>{money(p.price)}</strong></div></div><div className="shrink-0 text-right"><div className="text-xs text-muted-foreground">{t("stock")}</div><div className="font-display text-2xl font-bold">{formatInteger(stock)}</div></div></div>
-            {imeis.length > 0 && <div className="mt-3 border-t pt-2"><div className="mb-1 text-xs text-muted-foreground">IMEI ({imeis.length})</div><div className="break-all text-sm font-mono leading-6">{imeis.join(" · ")}</div></div>}
+            {imeis.length > 0 && <div className="mt-3 border-t pt-2 text-xs text-muted-foreground">IMEI: {imeis.length} · বিস্তারিত দেখতে কার্ডে চাপ দিন</div>}
           </button>;
         })}
       </div>
